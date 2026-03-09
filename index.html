@@ -764,7 +764,7 @@ function getActualByPropUnit(prop, unit, monthIdx){
       if(p.status!=='paid') return false;
       if(prop && p.property!==prop) return false;
       if(unit && p.unit!==unit) return false;
-      const d=new Date(p.paid||p.due);
+      const dateStr=p.due||p.paid; if(!dateStr) return false; const d=new Date(dateStr+"T00:00:00");
       return d.getMonth()===monthIdx && d.getFullYear()===2026;
     })
     .reduce((s,p)=>s+Number(p.amount),0);
@@ -774,7 +774,7 @@ function getActualExpenseByProp(prop, monthIdx){
   return expenses
     .filter(e=>{
       if(prop && e.property!==prop) return false;
-      const d=new Date(e.date);
+      if(!e.date) return false; const d=new Date(e.date+"T00:00:00");
       return d.getMonth()===monthIdx && d.getFullYear()===2026;
     })
     .reduce((s,e)=>s+Number(e.amount),0)*-1; // expenses are negative
@@ -841,17 +841,17 @@ function renderBudget(){
         }
       } else if(isSubtotal && row.prop==='rahba'){
         // Sum all rahba payments minus expenses for this month
-        const rahbaInc = payments.filter(p=>p.status==='paid'&&p.property==='rahba'&&new Date(p.paid||p.due).getMonth()===i&&new Date(p.paid||p.due).getFullYear()===2026).reduce((s,p)=>s+Number(p.amount),0);
+        const rahbaInc = payments.filter(p=>p.status==='paid'&&p.property==='rahba'&&new Date((p.due||p.paid)+'T00:00:00').getMonth()===i&&new Date((p.due||p.paid)+'T00:00:00').getFullYear()===2026).reduce((s,p)=>s+Number(p.amount),0);
         const rahbaExp = expenses.filter(e=>e.property==='rahba'&&new Date(e.date).getMonth()===i&&new Date(e.date).getFullYear()===2026).reduce((s,e)=>s+Number(e.amount),0);
         a = rahbaInc - rahbaExp;
       } else if(isTotal){
         // All payments minus all expenses for this month
-        const allInc = payments.filter(p=>p.status==='paid'&&new Date(p.paid||p.due).getMonth()===i&&new Date(p.paid||p.due).getFullYear()===2026).reduce((s,p)=>s+Number(p.amount),0);
+        const allInc = payments.filter(p=>p.status==='paid'&&new Date((p.due||p.paid)+'T00:00:00').getMonth()===i&&new Date((p.due||p.paid)+'T00:00:00').getFullYear()===2026).reduce((s,p)=>s+Number(p.amount),0);
         const allExp = expenses.filter(e=>new Date(e.date).getMonth()===i&&new Date(e.date).getFullYear()===2026).reduce((s,e)=>s+Number(e.amount),0);
         a = allInc - allExp;
       } else if(isCumul){
         // Running cumulative actual up to this month
-        const allInc = payments.filter(p=>p.status==='paid'&&new Date(p.paid||p.due).getMonth()<=i&&new Date(p.paid||p.due).getFullYear()===2026).reduce((s,p)=>s+Number(p.amount),0);
+        const allInc = payments.filter(p=>p.status==='paid'&&new Date((p.due||p.paid)+'T00:00:00').getMonth()<=i&&new Date((p.due||p.paid)+'T00:00:00').getFullYear()===2026).reduce((s,p)=>s+Number(p.amount),0);
         const allExp = expenses.filter(e=>new Date(e.date).getMonth()<=i&&new Date(e.date).getFullYear()===2026).reduce((s,e)=>s+Number(e.amount),0);
         a = allInc - allExp;
       }
