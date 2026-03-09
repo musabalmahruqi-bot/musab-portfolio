@@ -425,7 +425,8 @@ const PROPERTIES=[
   {id:'luban',    name:'Almouj Luban',  location:'The Wave, Muscat',flag:'🇴🇲',value:100000,units:[{id:'l1',name:'Apartment'}]},
   {id:'reehan',   name:'Reehan Flat',   location:'Dubai, UAE',      flag:'🇦🇪',value:210000,units:[{id:'re1',name:'Apartment'}]},
   {id:'residence',name:'Residence Flat',location:'Dubai, UAE',      flag:'🇦🇪',value:245000,units:[{id:'rs1',name:'Apartment'}]},
-  {id:'manchester',name:'CitySuites',   location:'Manchester, UK',  flag:'🇬🇧',value:88000, units:[{id:'m1',name:'Suite'}]}
+  {id:'manchester',name:'CitySuites',   location:'Manchester, UK',  flag:'🇬🇧',value:88000, units:[{id:'m1',name:'Suite'}]},
+  {id:'tilal',name:'Tilal (Sold)',location:'Muscat, Oman',flag:'🇴🇲',value:0,units:[{id:'t1',name:'Apartment'}]}
 ];
 const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const BUDGET={
@@ -461,6 +462,8 @@ const DEFAULT_DATA = {
     {id:16,property:'luban',unit:'l1',tenant:'Wave Tenant',amount:1575,due:'2026-04-01',paid:'',status:'pending',notes:'Apr'},
     {id:17,property:'reehan',unit:'re1',tenant:'',amount:13684.2,due:'2026-06-01',paid:'',status:'pending',notes:'Annual AED Jun'},
     {id:18,property:'residence',unit:'rs1',tenant:'',amount:14210.5,due:'2026-04-01',paid:'',status:'pending',notes:'Annual AED Apr'},
+    {id:19,property:'tilal',unit:'t1',tenant:'Tenant',amount:430,due:'2026-01-01',paid:'2026-01-01',status:'paid',notes:'Jan — sold property'},
+    {id:20,property:'tilal',unit:'t1',tenant:'Tenant',amount:430,due:'2026-02-01',paid:'2026-02-01',status:'paid',notes:'Feb — sold property'},
   ],
   expenses:[
     {id:1,property:'rahba',cat:'Management',desc:'Common expenses Jan',amount:105,date:'2026-01-01',paidby:'Owner'},
