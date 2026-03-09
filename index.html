@@ -244,6 +244,7 @@ tbody tr:hover{background:var(--surface2);}
         <div class="sync-dot" id="syncDot"></div>
         <span class="sync-label" id="syncLabel">Connecting...</span>
         <button class="btn btn-ghost" onclick="exportCSV()">↓ CSV</button>
+        <button class="btn btn-ghost" onclick="resetAndReload()" style="color:var(--red);border-color:var(--red-dim)">↺ Reset Data</button>
         <button class="btn btn-primary" onclick="openModal('addPayment')">+ Add Record</button>
       </div>
     </div>
@@ -492,11 +493,18 @@ const DEFAULT_DATA = {
 // ═══════════════════════════════════
 let payments=[], expenses=[], tenants=[], currentPage='dashboard', rentFilter='all', expFilter='all';
 
+
+// COOKIE HELPERS
+function setCookie(name,val){document.cookie=name+"="+val+";path=/;max-age=31536000;SameSite=Lax";}
+function getCookie(name){const m=document.cookie.match("(^|;)\\s*"+name+"\\s*=\\s*([^;]+)");return m?m[2]:null;}
+function delCookie(name){document.cookie=name+"=;path=/;max-age=0";}
+async function resetAndReload(){if(!confirm("Reset all data to defaults? This will restore Tilal payments."))return;delCookie("portfolio_bin_id");payments=DEFAULT_DATA.payments;expenses=DEFAULT_DATA.expenses;tenants=DEFAULT_DATA.tenants;await jbSave({payments,expenses,tenants});renderPage(currentPage);alert("Done! Data has been reset.");}
+
 // ═══════════════════════════════════
 //  JSONBIN API
 // ═══════════════════════════════════
 async function jbGet(){
-  const id = localStorage.getItem('portfolio_bin_id');
+  const id = getCookie('portfolio_bin_id');
   if(!id) return null;
   try{
     const r = await fetch(`${JSONBIN_BASE}/${id}/latest`,{headers:{'X-Master-Key':JSONBIN_KEY}});
@@ -507,7 +515,7 @@ async function jbGet(){
 }
 
 async function jbSave(data){
-  const id = localStorage.getItem('portfolio_bin_id');
+  const id = getCookie('portfolio_bin_id');
   if(!id){
     // Create new bin
     const r = await fetch(JSONBIN_BASE,{
@@ -516,7 +524,7 @@ async function jbSave(data){
       body:JSON.stringify(data)
     });
     const j = await r.json();
-    localStorage.setItem('portfolio_bin_id', j.metadata.id);
+    setCookie('portfolio_bin_id', j.metadata.id);
     return true;
   } else {
     const r = await fetch(`${JSONBIN_BASE}/${id}`,{
@@ -720,33 +728,162 @@ function renderReports(){
 function switchTab(id,btn){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));btn.classList.add('active');document.getElementById('tab-'+id).classList.add('active');}
 
 // ═══════════════════════════════════
-//  BUDGET
+//  BUDGET — Full Excel cross-reference
 // ═══════════════════════════════════
+
+// Budget figures per property per month (from Excel)
+// Each array = [Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec]
+const EXCEL_ROWS = [
+  // ── RAHBA HILL individual villas ──
+  {label:'Villa 2 (Saqib)',    prop:'rahba', unit:'r2',   budget:[600,600,600,600,600,396.8,620,620,620,620,620,620],     cat:'villa'},
+  {label:'Villa 3',            prop:'rahba', unit:'r3',   budget:[0,1800,0,1800,0,0,1636.8,0,0,0,1636.8,0],              cat:'villa'},
+  {label:'Villa 4 (Tony)',     prop:'rahba', unit:'r4',   budget:[620,620,620,620,620,620,620,620,620,620,396.8,620],     cat:'villa'},
+  {label:'Villa 6',            prop:'rahba', unit:'r6',   budget:[0,1800,0,0,1800,0,0,1800,0,0,1584,0],                  cat:'villa'},
+  {label:'Villa 7 (Bairoz)',   prop:'rahba', unit:'r7',   budget:[0,1140,0,1140,0,1140,0,1140,934.8,0,1140,0],           cat:'villa'},
+  {label:'Villa 8',            prop:'rahba', unit:'r8',   budget:[0,1140,0,1140,0,1140,0,1140,0,934.8,0,1140],           cat:'villa'},
+  {label:'Villa 9 (Sarah)',    prop:'rahba', unit:'r9',   budget:[0,0,1650,0,0,1650,0,0,1650,0,0,1504.8],                cat:'villa'},
+  {label:'Villa 10 (Lulua)',   prop:'rahba', unit:'r10',  budget:[550,550,550,550,550,364.8,570,570,570,570,570,570],     cat:'villa'},
+  {label:'Rooftop',            prop:'rahba', unit:'roof', budget:[0,0,2070,0,0,0,0,0,0,0,0,0],                           cat:'villa'},
+  {label:'Rahba Expenses',     prop:'rahba', unit:null,   budget:[0,-849,-2070,0,0,0,0,0,0,0,0,0],                       cat:'expense', exprow:true},
+  {label:'Rahba Hill Net',     prop:'rahba', unit:null,   budget:[920,7650,3420,5850,3570,5311.6,3446.8,5890,4394.8,2744.8,5947.6,4454.8], cat:'subtotal'},
+  // ── OTHER PROPERTIES ──
+  {label:'Tilal (Sold)',       prop:'tilal', unit:'t1',   budget:[420,430,0,0,0,0,0,0,0,0,0,0],                          cat:'property'},
+  {label:'Almouj Luban',       prop:'luban', unit:'l1',   budget:[1575,0,-181,1575,0,-181,1386,0,-181,1575,0,-181],       cat:'property'},
+  {label:'Dubai Residence',    prop:'residence',unit:'rs1',budget:[0,0,0,14210.5,0,0,0,-1785.4,0,0,0,0],                 cat:'property'},
+  {label:'Dubai Reehan',       prop:'reehan',unit:'re1',  budget:[0,0,0,0,0,13684.2,0,0,0,0,-1785.4,0],                  cat:'property'},
+  {label:'Manchester',         prop:'manchester',unit:'m1',budget:[1181.3,0,0,1529,0,0,5000,0,0,0,0,0],                  cat:'property'},
+  // ── TOTALS ──
+  {label:'TOTAL',              prop:null,    unit:null,   budget:[4096.3,8080,3239,23164.5,3570,18814.8,9832.8,4104.6,4213.8,4319.8,4162.2,4273.8], cat:'total'},
+  {label:'Cumulative',         prop:null,    unit:null,   budget:[4096.3,12176.3,15415.3,38579.8,42149.8,60964.6,70797.4,74902,79115.8,83435.6,87597.9,91871.7], cat:'cumulative'},
+];
+
+function getActualByPropUnit(prop, unit, monthIdx){
+  // monthIdx 0=Jan ... 11=Dec
+  return payments
+    .filter(p=>{
+      if(p.status!=='paid') return false;
+      if(prop && p.property!==prop) return false;
+      if(unit && p.unit!==unit) return false;
+      const d=new Date(p.paid||p.due);
+      return d.getMonth()===monthIdx && d.getFullYear()===2026;
+    })
+    .reduce((s,p)=>s+Number(p.amount),0);
+}
+
+function getActualExpenseByProp(prop, monthIdx){
+  return expenses
+    .filter(e=>{
+      if(prop && e.property!==prop) return false;
+      const d=new Date(e.date);
+      return d.getMonth()===monthIdx && d.getFullYear()===2026;
+    })
+    .reduce((s,e)=>s+Number(e.amount),0)*-1; // expenses are negative
+}
+
 function renderBudget(){
   const paid=payments.filter(p=>p.status==='paid');
   const actualYTD=paid.reduce((s,p)=>s+Number(p.amount),0);
-  const variance=actualYTD-12176;
-  document.getElementById('bva-actual').textContent=fmtN(actualYTD);
+  const expYTD=expenses.reduce((s,e)=>s+Number(e.amount),0);
+  const netYTD=actualYTD-expYTD;
+  const budgetYTD=12176.3;
+  const variance=netYTD-budgetYTD;
+
+  document.getElementById('bva-actual').textContent=fmtN(netYTD);
   const ve=document.getElementById('bva-var');
   ve.textContent=(variance>=0?'+':'')+fmtN(variance);
   ve.style.color=variance>=0?'var(--green)':'var(--amber)';
-  const rows=[
-    {label:'Rahba Hill (Net)',key:'rahba_total',bold:true},
-    {label:'Tilal (Sold)',key:'tilal'},
-    {label:'Almouj Luban',key:'luban'},
-    {label:'Dubai – Residence',key:'residence'},
-    {label:'Dubai – Reehan',key:'reehan'},
-    {label:'Manchester',key:'manchester'},
-    {label:'TOTAL',key:'total',bold:true},
-  ];
-  let html=`<table style="min-width:900px"><thead><tr><th style="min-width:160px">Property</th>${MONTHS.map(m=>`<th colspan="2" style="text-align:center">${m}</th>`).join('')}<th colspan="2" style="text-align:center">Total</th></tr><tr><th></th>${MONTHS.map(()=>'<th style="color:var(--gold);font-size:9px">B</th><th style="color:var(--green);font-size:9px">A</th>').join('')}<th style="color:var(--gold);font-size:9px">B</th><th style="color:var(--green);font-size:9px">A</th></tr></thead><tbody>`;
-  rows.forEach(row=>{
-    const bArr=BUDGET[row.key]||Array(12).fill(0);
-    const totalB=bArr.reduce((s,v)=>s+(v||0),0);
-    const rs=row.bold?'background:var(--surface3);font-weight:500':'';
-    const cells=MONTHS.map((_,i)=>{const b=bArr[i];return(b&&b!==0?`<td style="color:var(--gold);text-align:right;font-size:11px">${fmtN(b)}</td>`:`<td style="color:var(--text-dim);text-align:right;font-size:11px">—</td>`)+`<td style="color:var(--text-dim);text-align:right;font-size:11px">—</td>`;}).join('');
-    html+=`<tr style="${rs}"><td style="${row.bold?'font-weight:500':'color:var(--text-muted)'}">${row.label}</td>${cells}<td style="color:var(--gold);text-align:right;font-weight:500">${fmtN(totalB)}</td><td style="color:var(--text-dim);text-align:right">—</td></tr>`;
+
+  // Build actual arrays per row
+  const today=new Date();
+  const currentMonth=today.getMonth(); // 0-based
+
+  let html=`<table style="min-width:1100px;font-size:11px">
+  <thead>
+    <tr>
+      <th style="min-width:170px;position:sticky;left:0;background:var(--surface);z-index:2">Property / Unit</th>
+      ${MONTHS.map((m,i)=>`<th colspan="2" style="text-align:center;color:${i<=currentMonth?'var(--text)':'var(--text-dim)'};border-left:1px solid var(--border)">${m}</th>`).join('')}
+      <th colspan="2" style="text-align:center;border-left:1px solid var(--border2);color:var(--gold)">Total</th>
+    </tr>
+    <tr>
+      <th style="position:sticky;left:0;background:var(--surface);z-index:2;font-size:9px;color:var(--text-dim)">B = Budget &nbsp; A = Actual</th>
+      ${MONTHS.map(()=>'<th style="color:var(--gold);font-size:9px;text-align:right;border-left:1px solid var(--border)">B</th><th style="color:var(--green);font-size:9px;text-align:right">A</th>').join('')}
+      <th style="color:var(--gold);font-size:9px;text-align:right;border-left:1px solid var(--border2)">B</th>
+      <th style="color:var(--green);font-size:9px;text-align:right">A</th>
+    </tr>
+  </thead>
+  <tbody>`;
+
+  EXCEL_ROWS.forEach(row=>{
+    const isSubtotal = row.cat==='subtotal';
+    const isTotal    = row.cat==='total';
+    const isCumul    = row.cat==='cumulative';
+    const isExpense  = row.cat==='expense';
+    const isSeparator= isSubtotal||isTotal||isCumul;
+
+    const rowStyle = isTotal    ? 'background:var(--surface3);font-weight:600;' :
+                     isCumul    ? 'background:var(--surface2);font-style:italic;' :
+                     isSubtotal ? 'background:var(--surface2);font-weight:600;border-top:1px solid var(--border2);' :
+                     isExpense  ? 'color:var(--red);' : '';
+
+    const labelStyle = isSeparator||isTotal ? 'font-weight:600' : isExpense ? 'color:var(--red)' : 'color:var(--text-muted)';
+
+    let totalB=0, totalA=0;
+    const cells = MONTHS.map((_,i)=>{
+      const b = row.budget[i]||0;
+      totalB += b;
+
+      let a = 0;
+      if(!isSeparator && !isCumul){
+        if(isExpense){
+          a = getActualExpenseByProp(row.prop, i);
+        } else if(row.prop && row.unit){
+          a = getActualByPropUnit(row.prop, row.unit, i);
+        }
+      } else if(isSubtotal && row.prop==='rahba'){
+        // Sum all rahba payments minus expenses for this month
+        const rahbaInc = payments.filter(p=>p.status==='paid'&&p.property==='rahba'&&new Date(p.paid||p.due).getMonth()===i&&new Date(p.paid||p.due).getFullYear()===2026).reduce((s,p)=>s+Number(p.amount),0);
+        const rahbaExp = expenses.filter(e=>e.property==='rahba'&&new Date(e.date).getMonth()===i&&new Date(e.date).getFullYear()===2026).reduce((s,e)=>s+Number(e.amount),0);
+        a = rahbaInc - rahbaExp;
+      } else if(isTotal){
+        // All payments minus all expenses for this month
+        const allInc = payments.filter(p=>p.status==='paid'&&new Date(p.paid||p.due).getMonth()===i&&new Date(p.paid||p.due).getFullYear()===2026).reduce((s,p)=>s+Number(p.amount),0);
+        const allExp = expenses.filter(e=>new Date(e.date).getMonth()===i&&new Date(e.date).getFullYear()===2026).reduce((s,e)=>s+Number(e.amount),0);
+        a = allInc - allExp;
+      } else if(isCumul){
+        // Running cumulative actual up to this month
+        const allInc = payments.filter(p=>p.status==='paid'&&new Date(p.paid||p.due).getMonth()<=i&&new Date(p.paid||p.due).getFullYear()===2026).reduce((s,p)=>s+Number(p.amount),0);
+        const allExp = expenses.filter(e=>new Date(e.date).getMonth()<=i&&new Date(e.date).getFullYear()===2026).reduce((s,e)=>s+Number(e.amount),0);
+        a = allInc - allExp;
+      }
+      totalA += a;
+
+      const future = i > currentMonth;
+      const bCell = b!==0 ? `<td style="text-align:right;color:var(--gold);border-left:1px solid var(--border);${future?'opacity:.4':''}">${fmtN(b)}</td>` : `<td style="border-left:1px solid var(--border);color:var(--text-dim);text-align:right">—</td>`;
+
+      let aColor = a>0?'var(--green)':a<0?'var(--red)':'var(--text-dim)';
+      // variance color: green if actual >= budget (for income rows), red if under
+      if(isSeparator||isTotal||isCumul){
+        aColor = a>=b ? 'var(--green)' : 'var(--amber)';
+      }
+      const aCell = (a!==0&&!future) ? `<td style="text-align:right;color:${aColor}">${fmtN(a)}</td>` : `<td style="text-align:right;color:var(--text-dim)">${future?'':a===0?'—':fmtN(a)}</td>`;
+
+      return bCell+aCell;
+    }).join('');
+
+    const totalBCell = `<td style="text-align:right;color:var(--gold);font-weight:${isSeparator?'600':'400'};border-left:1px solid var(--border2)">${totalB!==0?fmtN(totalB):'—'}</td>`;
+    const totalAColor = totalA>=totalB?'var(--green)':totalA>0?'var(--amber)':'var(--text-dim)';
+    const totalACell  = `<td style="text-align:right;color:${totalAColor};font-weight:${isSeparator?'600':'400'}">${totalA!==0?fmtN(totalA):'—'}</td>`;
+
+    // Add separator line before subtotals
+    const borderTop = isSubtotal ? 'border-top:2px solid var(--border2);' : '';
+
+    html+=`<tr style="${rowStyle}${borderTop}">
+      <td style="position:sticky;left:0;background:inherit;${labelStyle};padding-left:${row.cat==='villa'?'32px':'20px'}">${row.label}</td>
+      ${cells}
+      ${totalBCell}${totalACell}
+    </tr>`;
   });
+
   html+='</tbody></table>';
   document.getElementById('bvaTable').innerHTML=html;
 }
