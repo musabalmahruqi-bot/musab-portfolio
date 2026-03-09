@@ -527,7 +527,7 @@ async function jbSave(data){
 async function loadData(){
   setSyncStatus('loading');
   const data = await jbGet();
-  if(data && data.payments){
+  if(data && data.payments && data.payments.length > 0){
     payments = data.payments;
     expenses = data.expenses;
     tenants  = data.tenants;
