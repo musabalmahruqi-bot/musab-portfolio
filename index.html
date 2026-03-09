@@ -404,7 +404,8 @@ tbody tr:hover{background:var(--surface2);}
 // ═══════════════════════════════════
 const JSONBIN_KEY = '$2a$10$ISOFcAa7q7wNGeBcGiomXuHUjtDffnhNB4u4mxlGaICW7aavN/fFy';
 const JSONBIN_BASE = 'https://api.jsonbin.io/v3/b';
-let BIN_ID = null; // will be stored in localStorage
+const BIN_ID = '69aeaa4b43b1c97be9c47f81';
+
 
 // ═══════════════════════════════════
 //  USERS (simple local auth)
@@ -504,10 +505,8 @@ async function resetAndReload(){if(!confirm("Reset all data to defaults? This wi
 //  JSONBIN API
 // ═══════════════════════════════════
 async function jbGet(){
-  const id = getCookie('portfolio_bin_id');
-  if(!id) return null;
   try{
-    const r = await fetch(`${JSONBIN_BASE}/${id}/latest`,{headers:{'X-Master-Key':JSONBIN_KEY}});
+    const r = await fetch(`${JSONBIN_BASE}/${BIN_ID}/latest`,{headers:{'X-Master-Key':JSONBIN_KEY}});
     if(!r.ok) return null;
     const j = await r.json();
     return j.record;
@@ -515,25 +514,14 @@ async function jbGet(){
 }
 
 async function jbSave(data){
-  const id = getCookie('portfolio_bin_id');
-  if(!id){
-    // Create new bin
-    const r = await fetch(JSONBIN_BASE,{
-      method:'POST',
-      headers:{'Content-Type':'application/json','X-Master-Key':JSONBIN_KEY,'X-Bin-Name':'musab-portfolio','X-Bin-Private':'true'},
-      body:JSON.stringify(data)
-    });
-    const j = await r.json();
-    setCookie('portfolio_bin_id', j.metadata.id);
-    return true;
-  } else {
-    const r = await fetch(`${JSONBIN_BASE}/${id}`,{
+  try{
+    const r = await fetch(`${JSONBIN_BASE}/${BIN_ID}`,{
       method:'PUT',
       headers:{'Content-Type':'application/json','X-Master-Key':JSONBIN_KEY},
       body:JSON.stringify(data)
     });
     return r.ok;
-  }
+  }catch(e){return false;}
 }
 
 async function loadData(){
