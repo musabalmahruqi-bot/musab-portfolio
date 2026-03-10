@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v2026-03-10-waterfall-fix-2 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -670,10 +671,11 @@ function renderWaterfall(){
   // actualYTD = total paid - total expenses (netYTD)
   const BUDGET_YTD = 12176.3;
 
-  const paid = payments.filter(p=>p.status==='paid');
-  const totalPaid = paid.reduce((s,p)=>s+Number(p.amount),0);
-  const totalExp  = expenses.reduce((s,e)=>s+Number(e.amount),0);
-  const ACTUAL_YTD = totalPaid - totalExp;
+  // Identical to renderBudget()
+  const paid=payments.filter(p=>p.status==='paid');
+  const actualYTD=paid.reduce((s,p)=>s+Number(p.amount),0);
+  const expYTD=expenses.reduce((s,e)=>s+Number(e.amount),0);
+  const ACTUAL_YTD=actualYTD-expYTD;
 
   // Per-property breakdown (income only, matching what budget page shows per row)
   const propData = [
@@ -762,7 +764,6 @@ function renderDashboard(){
   const mx=Math.max(...byProp.map(x=>x.val),1);
   document.getElementById('incomeChart').innerHTML=byProp.length?byProp.map(r=>`<div class="bar-row"><div class="bar-name">${r.name}</div><div class="bar-track"><div class="bar-fill" style="width:${(r.val/mx*100).toFixed(1)}%"></div></div><div class="bar-val">OMR ${fmtN(r.val)}</div></div>`).join(''):'<div class="empty">No payments yet</div>';
   renderExpiryTracker();
-  renderWaterfall();
   const recent=[...payments].sort((a,b)=>new Date(b.due)-new Date(a.due)).slice(0,6);
   document.getElementById('recentPayments').innerHTML=recent.length?recent.map(p=>`<tr><td>${getPropName(p.property)}</td><td>${p.tenant||'—'}</td><td class="text-gold">OMR ${fmtN(p.amount)}</td><td>${fmtDate(p.due)}</td><td>${statusBadge(p.status)}</td></tr>`).join(''):'<tr><td colspan="5" class="empty">No payments yet</td></tr>';
 }
