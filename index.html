@@ -690,7 +690,7 @@ function renderPage(id){
 // ═══════════════════════════════════
 function renderWaterfall(){
   const wrap = document.getElementById('waterfallWrap');
-  if(!wrap){ console.log('waterfallWrap not found'); return; }
+  if(!wrap) return;
 
   const BUDGET_YTD = 12176.3;
   const paid = payments.filter(p=>p.status==='paid');
@@ -698,11 +698,10 @@ function renderWaterfall(){
   const totalExp  = expenses.reduce((s,e)=>s+Number(e.amount),0);
   const ACTUAL_YTD = totalPaid - totalExp;
 
-  console.log('WF: BUDGET_YTD='+BUDGET_YTD+' ACTUAL_YTD='+ACTUAL_YTD+' paid='+paid.length);
-
   const bSlice = (arr) => arr.slice(0,2).reduce((s,v)=>s+(v||0),0);
   const aSum   = (prop) => paid.filter(p=>p.property===prop).reduce((s,p)=>s+Number(p.amount),0);
 
+  // Include ALL properties with non-zero budget OR non-zero actual (keep even if delta=0)
   const propData = [
     {label:'Rahba',      b:bSlice(BUDGET.rahba_total), a:aSum('rahba')},
     {label:'Tilal',      b:bSlice(BUDGET.tilal),       a:aSum('tilal')},
@@ -716,8 +715,9 @@ function renderWaterfall(){
   let run = BUDGET_YTD;
   propData.forEach(p=>{
     const d = p.a - p.b;
-    if(Math.abs(d)<0.5) return;
-    steps.push({lines:[p.label], val:Math.abs(d), base:d<0?run+d:run, delta:d, type:d>=0?'up':'down'});
+    // Show all properties with budget or actual, even if delta=0
+    const base = d<0 ? run+d : run;
+    steps.push({lines:[p.label], val:Math.max(Math.abs(d),1), base:base, delta:d, type:d>0?'up':d<0?'down':'zero'});
     run += d;
   });
   if(totalExp>0.5){
@@ -726,43 +726,55 @@ function renderWaterfall(){
   }
   steps.push({lines:['Actual','YTD'], val:ACTUAL_YTD, base:0, type:'total'});
 
-  console.log('WF steps:'+steps.length);
+  // Min column height so small values still show as a proper bar
+  const MIN_BAR_H = 28;
+  const CW=52, GAP=30, PL=48, PT=30, PB=44, CH=180;
+  const W = PL + steps.length*(CW+GAP) - GAP + 12;
+  const H = PT + CH + PB;
+  const maxV = Math.max(BUDGET_YTD, ACTUAL_YTD) * 1.28;
 
-  const CW=52,GAP=30,PL=48,PT=30,PB=44,CH=160;
-  const W=PL+steps.length*(CW+GAP)-GAP+12, H=PT+CH+PB;
-  const maxV=Math.max(BUDGET_YTD,ACTUAL_YTD)*1.28||1;
-  const py=v=>PT+CH-Math.round(Math.max(v,0)/maxV*CH);
-  const fmtK=v=>v>=1000?(v/1000).toFixed(1)+'k':Math.round(v)+'';
-  const C={total:'#888',up:'#5b8dee',down:'#e09a3a'};
+  const py = v => PT + CH - Math.round(Math.max(v,0)/maxV*CH);
+  const fmtK = v => v>=1000?(v/1000).toFixed(1)+'k':Math.round(v)+'';
+  const C = {total:'#888', up:'#5b8dee', down:'#e09a3a', zero:'#555'};
 
-  let s=`<svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 ${W} ${H}" style="display:block;overflow:visible">`;
+  let s = `<svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 ${W} ${H}" style="display:block;overflow:visible">`;
+
   for(let i=1;i<=4;i++){
-    const v=maxV*i/4,y=py(v);
+    const v=maxV*i/4, y=py(v);
     s+=`<line x1="${PL}" y1="${y}" x2="${W-4}" y2="${y}" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>`;
     s+=`<text x="${PL-5}" y="${y+4}" text-anchor="end" font-size="9" fill="#4a4a55" font-family="sans-serif">${fmtK(v)}</text>`;
   }
   s+=`<line x1="${PL}" y1="${py(0)}" x2="${W-4}" y2="${py(0)}" stroke="rgba(255,255,255,0.18)" stroke-width="1"/>`;
+
   steps.forEach((step,i)=>{
-    const x=PL+i*(CW+GAP),cx=x+CW/2,col=C[step.type];
-    const yT=step.type==='total'?py(step.val):py(step.base+step.val);
-    const yB=step.type==='total'?py(0):py(step.base);
-    const bH=Math.max(yB-yT,3);
+    const x=PL+i*(CW+GAP), cx=x+CW/2, col=C[step.type];
+    let yT = step.type==='total' ? py(step.val) : py(step.base+step.val);
+    const yB = step.type==='total' ? py(0) : py(step.base);
+    // Enforce minimum bar height
+    let bH = Math.max(yB-yT, MIN_BAR_H);
+    if(step.type!=='total') yT = yB - bH;
+
     s+=`<rect x="${x}" y="${yT}" width="${CW}" height="${bH}" fill="${col}" rx="2" opacity="0.88"/>`;
-    const lbl=step.type==='total'?'OMR '+fmtK(step.val):(step.delta>=0?'+':'-')+fmtK(Math.abs(step.delta));
-    const lw=lbl.length*6.2+10;
+
+    const lbl = step.type==='total'
+      ? 'OMR '+fmtK(step.val)
+      : step.delta===0 ? '=' : (step.delta>0?'+':'')+fmtK(step.delta);
+    const lw = lbl.length*6.2+10;
     s+=`<rect x="${cx-lw/2}" y="${yT-20}" width="${lw}" height="15" rx="3" fill="#0e0e10"/>`;
     s+=`<text x="${cx}" y="${yT-9}" text-anchor="middle" font-size="10" font-weight="600" fill="${col}" font-family="sans-serif">${lbl}</text>`;
+
     if(i<steps.length-1){
-      const cy2=step.type==='total'?py(step.val):step.delta>=0?py(step.base+step.val):py(step.base);
+      const cy2 = step.type==='total' ? py(step.val) : step.delta>=0 ? yT : yB;
       s+=`<line x1="${x+CW}" y1="${cy2}" x2="${x+CW+GAP}" y2="${cy2}" stroke="rgba(255,255,255,0.25)" stroke-width="1" stroke-dasharray="4,3"/>`;
     }
+
     step.lines.forEach((ln,li)=>{
       s+=`<text x="${cx}" y="${py(0)+14+li*12}" text-anchor="middle" font-size="9" fill="#7a7a85" font-family="sans-serif">${ln}</text>`;
     });
   });
+
   s+='</svg>';
-  wrap.innerHTML=s;
-  console.log('WF: done, SVG length='+s.length);
+  wrap.innerHTML = s;
 }
 
 // ═══════════════════════════════════
