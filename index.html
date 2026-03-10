@@ -163,6 +163,9 @@ tbody tr:hover{background:var(--surface2);}
 .unit-name{font-size:12px;}
 .unit-tenant{font-size:10px;color:var(--text-muted);}
 .unit-rent{font-size:12px;color:var(--gold);}
+.unit-edit-btn{background:transparent;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);font-family:'DM Mono',monospace;font-size:10px;padding:3px 8px;cursor:pointer;opacity:0;transition:opacity .15s;}
+.unit-row:hover .unit-edit-btn{opacity:1;}
+.unit-freq{font-size:9px;padding:2px 6px;border-radius:3px;background:var(--surface3);color:var(--text-muted);margin-left:6px;}
 .tag{display:inline-flex;padding:3px 8px;border-radius:4px;font-size:10px;}
 .text-gold{color:var(--gold);}
 .text-green{color:var(--green);}
@@ -416,6 +419,47 @@ tbody tr:hover{background:var(--surface2);}
       </div>
     </div>
     <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('addTenant')">Cancel</button><button class="btn btn-primary" onclick="saveTenant()">Save</button></div>
+  </div>
+</div>
+
+
+<div class="modal-overlay" id="modal-unitEdit">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="unitEditTitle">Edit Unit</div>
+      <button class="modal-close" onclick="closeModal('unitEdit')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="ue-tenantIdx">
+      <input type="hidden" id="ue-propId">
+      <input type="hidden" id="ue-unitId">
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">Tenant Name</label><input class="form-input" id="ue-name" placeholder="Full name"></div>
+        <div class="form-group"><label class="form-label">Phone Number</label><input class="form-input" id="ue-contact" placeholder="+968 XXXX XXXX"></div>
+        <div class="form-group"><label class="form-label">Monthly Rent (OMR)</label><input class="form-input" id="ue-rent" type="number" step="0.001"></div>
+        <div class="form-group"><label class="form-label">Payment Frequency</label>
+          <select class="form-select" id="ue-freq">
+            <option value="monthly">Monthly</option>
+            <option value="bimonthly">Bi-Monthly</option>
+            <option value="quarterly">Quarterly</option>
+            <option value="annually">Annually</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Lease Start</label><input class="form-input" id="ue-start" type="date"></div>
+        <div class="form-group"><label class="form-label">Lease Expiry</label><input class="form-input" id="ue-end" type="date"></div>
+        <div class="form-group"><label class="form-label">Status</label>
+          <select class="form-select" id="ue-status">
+            <option value="active">Active</option>
+            <option value="notice">Notice Given</option>
+            <option value="expired">Expired</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('unitEdit')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveUnitEdit()">Save</button>
+    </div>
   </div>
 </div>
 
@@ -936,8 +980,41 @@ function renderProperties(){
     const pt=tenants.filter(t=>t.property===p.id);
     const occ=pt.filter(t=>t.status==='active').length;
     const inc=payments.filter(x=>x.property===p.id&&x.status==='paid').reduce((s,x)=>s+Number(x.amount),0);
-    const rows=p.units.map(u=>{const t=tenants.find(x=>x.property===p.id&&x.unit===u.id);return`<div class="unit-row"><div class="unit-left"><div class="unit-dot dot-green"></div><div><div class="unit-name">${u.name}</div><div class="unit-tenant">${t?t.name:'—'}</div></div></div><div class="unit-right"><div class="unit-rent">${t?'OMR '+fmtN(t.rent)+'/mo':'—'}</div></div></div>`;}).join('');
-    return`<div class="property-card"><div class="prop-header"><div class="prop-flag">${p.flag}</div><div class="prop-info"><div class="prop-name">${p.name}</div><div class="prop-location">${p.location}</div></div><div class="prop-status status-occupied">Occupied</div></div><div class="prop-body"><div class="prop-stats"><div><div class="prop-stat-label">Value</div><div class="prop-stat-value gold">OMR ${fmtN(p.value)}</div></div><div><div class="prop-stat-label">Units</div><div class="prop-stat-value">${occ}/${p.units.length}</div></div><div><div class="prop-stat-label">YTD Income</div><div class="prop-stat-value">OMR ${fmtN(inc)}</div></div></div><div class="units-list">${rows}</div></div></div>`;
+    const rows=p.units.map(u=>{
+      const ti=tenants.findIndex(x=>x.property===p.id&&x.unit===u.id);
+      const t=ti>=0?tenants[ti]:null;
+      const freqLabel={'monthly':'Monthly','bimonthly':'Bi-Monthly','quarterly':'Quarterly','annually':'Annual'}[t?.freq||'monthly']||'Monthly';
+      const dotColor=t&&t.status==='active'?'var(--green)':t?'var(--amber)':'var(--text-dim)';
+      return`<div class="unit-row">
+        <div class="unit-left">
+          <div class="unit-dot" style="background:${dotColor}"></div>
+          <div>
+            <div class="unit-name">${u.name}</div>
+            <div class="unit-tenant">${t?t.name:'— Vacant'} ${t&&t.contact?'· '+t.contact:''}</div>
+          </div>
+        </div>
+        <div class="unit-right" style="display:flex;align-items:center;gap:10px">
+          ${t?`<span class="unit-freq">${freqLabel}</span>`:''}
+          <div class="unit-rent">${t?'OMR '+fmtN(t.rent)+'/mo':'—'}</div>
+          <button class="unit-edit-btn" onclick="openUnitEdit(${ti>=0?ti:-1},'${p.id}','${u.id}')">Edit</button>
+        </div>
+      </div>`;
+    }).join('');
+    return`<div class="property-card">
+      <div class="prop-header">
+        <div class="prop-flag">${p.flag}</div>
+        <div class="prop-info"><div class="prop-name">${p.name}</div><div class="prop-location">${p.location}</div></div>
+        <div class="prop-status status-occupied">Occupied</div>
+      </div>
+      <div class="prop-body">
+        <div class="prop-stats">
+          <div><div class="prop-stat-label">Value</div><div class="prop-stat-value gold">OMR ${fmtN(p.value)}</div></div>
+          <div><div class="prop-stat-label">Units</div><div class="prop-stat-value">${occ}/${p.units.length}</div></div>
+          <div><div class="prop-stat-label">YTD Income</div><div class="prop-stat-value">OMR ${fmtN(inc)}</div></div>
+        </div>
+        <div class="units-list">${rows}</div>
+      </div>
+    </div>`;
   }).join('');
 }
 
@@ -1391,6 +1468,62 @@ function renderPrevYears(){
   </div>`;
 
   page.innerHTML = html;
+}
+
+
+// ═══════════════════════════════════
+//  UNIT EDIT (from Properties page)
+// ═══════════════════════════════════
+function openUnitEdit(tenantIdx, propId, unitId){
+  const p = getProp(propId);
+  const u = p?.units.find(x=>x.id===unitId);
+  document.getElementById('unitEditTitle').textContent = (p?p.name:'') + ' — ' + (u?u.name:'Unit');
+  document.getElementById('ue-tenantIdx').value = tenantIdx;
+  document.getElementById('ue-propId').value = propId;
+  document.getElementById('ue-unitId').value = unitId;
+  if(tenantIdx >= 0){
+    const t = tenants[tenantIdx];
+    document.getElementById('ue-name').value    = t.name||'';
+    document.getElementById('ue-contact').value = t.contact||'';
+    document.getElementById('ue-rent').value    = t.rent||'';
+    document.getElementById('ue-freq').value    = t.freq||'monthly';
+    document.getElementById('ue-start').value   = t.start||'';
+    document.getElementById('ue-end').value     = t.end||'';
+    document.getElementById('ue-status').value  = t.status||'active';
+  } else {
+    document.getElementById('ue-name').value    = '';
+    document.getElementById('ue-contact').value = '';
+    document.getElementById('ue-rent').value    = '';
+    document.getElementById('ue-freq').value    = 'monthly';
+    document.getElementById('ue-start').value   = '';
+    document.getElementById('ue-end').value     = '';
+    document.getElementById('ue-status').value  = 'active';
+  }
+  document.getElementById('modal-unitEdit').classList.add('open');
+}
+
+function saveUnitEdit(){
+  const idx     = document.getElementById('ue-tenantIdx').value;
+  const propId  = document.getElementById('ue-propId').value;
+  const unitId  = document.getElementById('ue-unitId').value;
+  const name    = document.getElementById('ue-name').value.trim();
+  if(!name){ alert('Please enter a tenant name.'); return; }
+  const rec = {
+    id:       parseInt(idx) >= 0 ? tenants[parseInt(idx)].id : nextId(tenants),
+    name:     name,
+    contact:  document.getElementById('ue-contact').value.trim(),
+    property: propId,
+    unit:     unitId,
+    rent:     parseFloat(document.getElementById('ue-rent').value)||0,
+    freq:     document.getElementById('ue-freq').value,
+    start:    document.getElementById('ue-start').value,
+    end:      document.getElementById('ue-end').value,
+    status:   document.getElementById('ue-status').value,
+  };
+  if(parseInt(idx) >= 0){ tenants[parseInt(idx)] = rec; }
+  else { tenants.push(rec); }
+  saveData().then(()=>renderPage(currentPage));
+  closeModal('unitEdit');
 }
 
 // ═══════════════════════════════════
