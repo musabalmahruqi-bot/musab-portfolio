@@ -270,15 +270,6 @@ tbody tr:hover{background:var(--surface2);}
             </div>
           </div>
         </div>
-        <div class="chart-card" style="margin-bottom:28px">
-          <div class="chart-label">Budget vs Actual — Waterfall YTD 2026</div>
-          <div style="display:flex;gap:16px;margin-bottom:12px">
-            <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text-muted)"><div style="width:12px;height:12px;border-radius:2px;background:#5b8dee"></div>Above budget</div>
-            <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text-muted)"><div style="width:12px;height:12px;border-radius:2px;background:#e09a3a"></div>Below budget</div>
-            <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text-muted)"><div style="width:12px;height:12px;border-radius:2px;background:#888"></div>Total</div>
-          </div>
-          <div id="waterfallWrap" style="width:100%;min-height:300px"></div>
-        </div>
         <div class="section-header"><div class="section-title">Contract Renewals <span>all properties</span></div></div>
         <div class="table-card"><table><thead><tr><th>Property</th><th>Unit</th><th>Tenant</th><th>Monthly Rent</th><th>Expiry</th><th>Days Left</th><th>Status</th></tr></thead><tbody id="expiryTable"></tbody></table></div>
         <div class="section-header"><div class="section-title">Recent Payments <span>latest entries</span></div><button class="btn btn-ghost" onclick="showPage('rent',null)">View All</button></div>
@@ -684,7 +675,7 @@ function showPage(id,el){
 }
 
 function renderPage(id){
-  if(id==='dashboard')  { renderDashboard(); renderWaterfall(); }
+  if(id==='dashboard')  { renderDashboard(); }
   if(id==='properties') renderProperties();
   if(id==='rent')       renderRentTable();
   if(id==='expenses')   renderExpTable();
@@ -802,7 +793,6 @@ function renderDashboard(){
   const mx=Math.max(...byProp.map(x=>x.val),1);
   document.getElementById('incomeChart').innerHTML=byProp.length?byProp.map(r=>`<div class="bar-row"><div class="bar-name">${r.name}</div><div class="bar-track"><div class="bar-fill" style="width:${(r.val/mx*100).toFixed(1)}%"></div></div><div class="bar-val">OMR ${fmtN(r.val)}</div></div>`).join(''):'<div class="empty">No payments yet</div>';
   renderExpiryTracker();
-  renderWaterfall();
   const recent=[...payments].sort((a,b)=>new Date(b.due)-new Date(a.due)).slice(0,6);
   document.getElementById('recentPayments').innerHTML=recent.length?recent.map(p=>`<tr><td>${getPropName(p.property)}</td><td>${p.tenant||'—'}</td><td class="text-gold">OMR ${fmtN(p.amount)}</td><td>${fmtDate(p.due)}</td><td>${statusBadge(p.status)}</td></tr>`).join(''):'<tr><td colspan="5" class="empty">No payments yet</td></tr>';
 }
