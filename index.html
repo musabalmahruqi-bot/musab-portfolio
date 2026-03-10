@@ -561,7 +561,7 @@ async function jbSave(data){
   }catch(e){return false;}
 }
 
-async function loadData(){
+async async function loadData(){
   setSyncStatus('loading');
   const data = await jbGet();
   if(data && data.payments && data.payments.length > 0){
