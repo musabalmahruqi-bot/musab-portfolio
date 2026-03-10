@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- BUILD-20260310-K -->
+<!-- BUILD-20260310-L -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -229,7 +229,6 @@ tbody tr:hover{background:var(--surface2);}
       <div class="nav-label">2026</div>
       <div class="nav-item" onclick="showPage('budget2026',this)"><span class="nav-icon">▣</span>Budget vs Actual</div>
       <div class="nav-label">Tenants</div>
-      <div class="nav-item" onclick="showPage('renewals',this)"><span class="nav-icon">↻</span>Contract Renewals</div>
       <div class="nav-item" onclick="showPage('tenants',this)"><span class="nav-icon">○</span>Tenants</div>
     </nav>
     <div class="nav-signout">
@@ -814,25 +813,75 @@ function renderDashboard(){
   document.getElementById('kpi-ytd').textContent=fmtN(totalIn);
   document.getElementById('kpi-exp').textContent=fmtN(totalEx);
 
-  // March table
+  // ── This Month table: use EXCEL_ROWS budget as expected, cross-ref actual payments ──
   const mNow=new Date(), mM=mNow.getMonth(), mY=mNow.getFullYear();
-  const mPay=payments.filter(p=>{ const d=new Date((p.due||p.paid)+'T00:00:00'); return d.getMonth()===mM&&d.getFullYear()===mY; });
-  const mExp=expenses.filter(e=>{ const d=new Date(e.date+'T00:00:00'); return d.getMonth()===mM&&d.getFullYear()===mY; });
-  const mTotPay=mPay.reduce((s,p)=>s+Number(p.amount),0);
-  const mTotExp=mExp.reduce((s,e)=>s+Number(e.amount),0);
-  const mNet=mTotPay-mTotExp;
-  const PLBL={rahba:'Rahba Hill',tilal:'Tilal',luban:'Luban',residence:'Residence',reehan:'Reehan',manchester:'Manchester'};
-  let rows='';
-  mPay.forEach(p=>{
-    const badge=p.status==='paid'?'<span style="color:var(--green);font-size:9px">✓ paid</span>':'<span style="color:var(--amber);font-size:9px">pending</span>';
-    rows+=`<tr><td style="padding:2px 6px 2px 0;color:var(--text-muted)">${PLBL[p.property]||p.property}</td><td style="padding:2px 6px 2px 0;color:var(--text-muted)">${p.unit||''}</td><td style="padding:2px 6px 2px 0">${badge}</td><td style="padding:2px 0;text-align:right;color:var(--text)">OMR ${fmtN(Number(p.amount))}</td></tr>`;
+  const monthNames=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  // Build expected income rows from EXCEL_ROWS for current month
+  const incomeRows = EXCEL_ROWS
+    .filter(r=>r.cat!=='cumulative' && r.budget[mM] && r.budget[mM]>0)
+    .map(r=>{
+      const budgeted = r.budget[mM];
+      // Find matching actual payment this month
+      const actual = payments.filter(p=>{
+        if(p.property!==r.prop || p.unit!==r.unit) return false;
+        const d=new Date((p.due||p.paid)+'T00:00:00');
+        return d.getMonth()===mM && d.getFullYear()===mY;
+      });
+      const actualAmt = actual.reduce((s,p)=>s+Number(p.amount),0);
+      const status = actual.length===0 ? 'expected' : actual[0].status==='paid' ? 'paid' : 'pending';
+      return {label:r.label, prop:r.prop, unit:r.unit, budgeted, actualAmt, status};
+    });
+
+  // Build expected expense rows from expenses array this month
+  const mthExp = expenses.filter(e=>{
+    const d=new Date(e.date+'T00:00:00');
+    return d.getMonth()===mM && d.getFullYear()===mY;
   });
-  mExp.forEach(e=>{
-    rows+=`<tr><td style="padding:2px 6px 2px 0;color:var(--amber)">${PLBL[e.property]||e.property}</td><td style="padding:2px 6px 2px 0;color:var(--text-muted)">${e.description||e.type||'Expense'}</td><td></td><td style="padding:2px 0;text-align:right;color:var(--amber)">− OMR ${fmtN(Number(e.amount))}</td></tr>`;
+
+  const PLBL={rahba:'Rahba',tilal:'Tilal',luban:'Luban',residence:'Residence',reehan:'Reehan',manchester:'Manchester'};
+
+  let rows='<thead><tr>'
+    +'<th style="text-align:left;padding:3px 8px 3px 0;color:var(--text-muted);font-weight:500">Unit</th>'
+    +'<th style="text-align:right;padding:3px 8px 3px 0;color:var(--text-muted);font-weight:500">Budgeted</th>'
+    +'<th style="text-align:right;padding:3px 0;color:var(--text-muted);font-weight:500">Status</th>'
+    +'</tr></thead><tbody>';
+
+  let totBudget=0, totActual=0;
+  incomeRows.forEach(r=>{
+    totBudget+=r.budgeted;
+    const badge = r.status==='paid'
+      ? '<span style="color:var(--green)">✓ paid</span>'
+      : r.status==='pending'
+      ? '<span style="color:var(--amber)">pending</span>'
+      : '<span style="color:var(--text-muted)">expected</span>';
+    rows+=`<tr><td style="padding:2px 8px 2px 0;color:var(--text)">${r.label}</td>`
+      +`<td style="padding:2px 8px 2px 0;text-align:right;color:var(--text)">OMR ${fmtN(r.budgeted)}</td>`
+      +`<td style="padding:2px 0;text-align:right">${badge}</td></tr>`;
   });
-  rows+=`<tr style="border-top:1px solid rgba(255,255,255,0.1)"><td colspan="3" style="padding:4px 0 0;font-weight:600;color:var(--text)">Net</td><td style="padding:4px 0 0;text-align:right;font-weight:600;color:${mNet>=0?'var(--green)':'var(--amber)'}">OMR ${fmtN(mNet)}</td></tr>`;
+
+  if(mthExp.length>0){
+    rows+=`<tr><td colspan="3" style="padding:6px 0 2px;color:var(--amber);font-weight:500;border-top:1px solid rgba(255,255,255,0.08)">Expenses</td></tr>`;
+    mthExp.forEach(e=>{
+      const amt=Number(e.amount);
+      totActual-=amt;
+      rows+=`<tr><td style="padding:2px 8px 2px 0;color:var(--text-muted)">${(PLBL[e.property]||e.property)+' — '+(e.description||e.type||'expense')}</td>`
+        +`<td style="padding:2px 8px 2px 0;text-align:right;color:var(--amber)">− OMR ${fmtN(amt)}</td>`
+        +`<td></td></tr>`;
+    });
+  }
+
+  const net = totBudget + totActual;
+  rows+=`<tr style="border-top:1px solid rgba(255,255,255,0.12)">`
+    +`<td style="padding:5px 8px 2px 0;font-weight:600;color:var(--text)">${monthNames[mM]} Total (budgeted)</td>`
+    +`<td style="padding:5px 8px 2px 0;text-align:right;font-weight:600;color:var(--text)">OMR ${fmtN(totBudget)}</td>`
+    +`<td></td></tr>`;
+  rows+='</tbody>';
+
   const tbl=document.getElementById('kpi-month-table');
-  if(tbl) tbl.innerHTML=mPay.length+mExp.length>0?`<table style="width:100%;border-collapse:collapse">${rows}</table>`:'<span style="color:var(--text-muted)">No entries this month</span>';
+  if(tbl) tbl.innerHTML=incomeRows.length>0
+    ?`<table style="width:100%;border-collapse:collapse;font-size:11px">${rows}</table>`
+    :'<span style="color:var(--text-muted)">No entries this month</span>';
 
   const byProp=PROPERTIES.map(p=>({name:p.name,val:paid.filter(x=>x.property===p.id).reduce((s,x)=>s+Number(x.amount),0)})).filter(x=>x.val>0).sort((a,b)=>b.val-a.val);
   const mx=Math.max(...byProp.map(x=>x.val),1);
@@ -872,7 +921,6 @@ function renderExpiryTracker(){
     const dl=exp?`<span class="text-red">${Math.abs(t.days)}d overdue</span>`:urg?`<span class="text-red">${t.days}d</span>`:`<span class="text-muted">${t.days}d</span>`;
     return`<tr class="${rc}"><td>${getProp(t.property)?.flag||''} ${getPropName(t.property)}</td><td>${getUnitName(t.property,t.unit)}</td><td>${t.name||'—'}</td><td class="text-gold">OMR ${fmtN(t.rent)}/mo</td><td>${fmtDate(t.end)}</td><td>${dl}</td><td>${pill}</td></tr>`;
   }).join('');
-  }
 }
 
 // ═══════════════════════════════════
