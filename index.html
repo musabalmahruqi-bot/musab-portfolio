@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- BUILD-20260310-D -->
+<!-- BUILD-20260310-C -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -692,148 +692,101 @@ function renderWaterfall(){
   var wrap = document.getElementById('waterfallWrap');
   if(!wrap) return;
 
-  // Use EXACT same figures as renderBudget headline KPIs
+  // Headline figures - identical to renderBudget KPI cards
   var paid = payments.filter(function(p){ return p.status==='paid'; });
-  var totalPaid = paid.reduce(function(s,p){ return s+Number(p.amount); }, 0);
-  var totalExp  = expenses.reduce(function(s,e){ return s+Number(e.amount); }, 0);
+  var totalPaid = paid.reduce(function(s,p){ return s+Number(p.amount); },0);
+  var totalExp  = expenses.reduce(function(s,e){ return s+Number(e.amount); },0);
   var ACTUAL_YTD = totalPaid - totalExp;
   var BUDGET_YTD = 12176.3;
 
-  // Per-property YTD actuals using getActualByPropUnit (months 0=Jan, 1=Feb)
-  // Same function the budget table rows use
-  function propActualYTD(prop, units){
-    var total = 0;
-    for(var m=0; m<=1; m++){
-      units.forEach(function(u){ total += getActualByPropUnit(prop, u, m); });
-    }
-    return total;
+  // Helper: sum paid payments for a property in Jan+Feb 2026
+  function paidYTD(prop){
+    return paid.filter(function(p){
+      if(p.property !== prop) return false;
+      var d = new Date((p.due||p.paid)+'T00:00:00');
+      return d.getFullYear()===2026 && d.getMonth()<=1;
+    }).reduce(function(s,p){ return s+Number(p.amount); },0);
   }
-  function propExpenseYTD(prop){
-    var total = 0;
-    for(var m=0; m<=1; m++){ total += getActualExpenseByProp(prop, m); }
-    return total;
+  // Helper: sum expenses for a property in Jan+Feb 2026
+  function expYTD(prop){
+    return expenses.filter(function(e){
+      if(e.property !== prop) return false;
+      var d = new Date(e.date+'T00:00:00');
+      return d.getFullYear()===2026 && d.getMonth()<=1;
+    }).reduce(function(s,e){ return s+Number(e.amount); },0);
   }
+  // Budget Jan+Feb helper
+  function bYTD(arr){ return (arr[0]||0)+(arr[1]||0); }
 
-  // Budget per property YTD (Jan+Feb = slice 0,2)
-  function bYTD(arr){ return arr.slice(0,2).reduce(function(s,v){ return s+(v||0); },0); }
-
-  var aRahba = propActualYTD('rahba',['r2','r3','r4','r6','r7','r8','r9','r10','roof']) - propExpenseYTD('rahba');
-  var bRahba = bYTD(BUDGET.rahba_total);
-
-  var aTilal = propActualYTD('tilal',['t1']);
-  var bTilal = bYTD(BUDGET.tilal);
-
-  var aLuban = propActualYTD('luban',['l1']);
-  var bLuban = bYTD(BUDGET.luban);
-
-  var aManchester = propActualYTD('manchester',['m1']);
-  var bManchester = bYTD(BUDGET.manchester);
-
-  var aResidence = propActualYTD('residence',['rs1']);
-  var bResidence = bYTD(BUDGET.residence);
-
-  var aReehan = propActualYTD('reehan',['re1']);
-  var bReehan = bYTD(BUDGET.reehan);
-
-  // Build waterfall steps
-  var steps = [{label:'Budget\nYTD', val:BUDGET_YTD, base:0, isTot:true, delta:0}];
-  var run = BUDGET_YTD;
-
+  // Per-property actuals (same logic as rahba subtotal row in budget table)
   var props = [
-    {label:'Rahba',      b:bRahba,      a:aRahba},
-    {label:'Tilal',      b:bTilal,      a:aTilal},
-    {label:'Luban',      b:bLuban,      a:aLuban},
-    {label:'Residence',  b:bResidence,  a:aResidence},
-    {label:'Reehan',     b:bReehan,     a:aReehan},
-    {label:'Manchester', b:bManchester, a:aManchester},
-  ];
+    { label:'Rahba',      b: bYTD(BUDGET.rahba_total), a: paidYTD('rahba') - expYTD('rahba') },
+    { label:'Tilal',      b: bYTD(BUDGET.tilal),       a: paidYTD('tilal') },
+    { label:'Luban',      b: bYTD(BUDGET.luban),       a: paidYTD('luban') },
+    { label:'Residence',  b: bYTD(BUDGET.residence),   a: paidYTD('residence') },
+    { label:'Reehan',     b: bYTD(BUDGET.reehan),      a: paidYTD('reehan') },
+    { label:'Manchester', b: bYTD(BUDGET.manchester),  a: paidYTD('manchester') },
+  ].filter(function(p){ return p.b!==0 || p.a!==0; });
 
+  // Build steps
+  var steps = [{ label:'Budget\nYTD', val:BUDGET_YTD, base:0, isTot:true, delta:0 }];
+  var run = BUDGET_YTD;
   props.forEach(function(p){
-    if(p.b===0 && p.a===0) return;
     var d = p.a - p.b;
-    var base = d < 0 ? run + d : run;
-    steps.push({label:p.label, val:Math.abs(d)||1, base:base, delta:d, isTot:false});
+    var base = d < 0 ? run+d : run;
+    steps.push({ label:p.label, val:Math.abs(d)||1, base:base, delta:d, isTot:false });
     run += d;
   });
-
-  // Expenses step
-  if(totalExp > 0){
-    // Expenses already deducted from Rahba above, so remaining exp are non-Rahba
-    var otherExp = totalExp - propExpenseYTD('rahba');
-    if(otherExp > 0){
-      steps.push({label:'Other\nExpenses', val:otherExp, base:run-otherExp, delta:-otherExp, isTot:false});
-      run -= otherExp;
-    }
+  // Non-rahba expenses (rahba exp already deducted above)
+  var otherExp = totalExp - expYTD('rahba');
+  if(otherExp > 0.5){
+    steps.push({ label:'Other\nExp', val:otherExp, base:run-otherExp, delta:-otherExp, isTot:false });
+    run -= otherExp;
   }
+  steps.push({ label:'Actual\nYTD', val:ACTUAL_YTD, base:0, isTot:true, delta:0 });
 
-  steps.push({label:'Actual\nYTD', val:ACTUAL_YTD, base:0, isTot:true, delta:0});
-
-  // Draw SVG
+  // Draw
   var CW=58, GAP=26, PL=50, PT=32, PB=50, CH=175;
   var W = PL + steps.length*(CW+GAP) - GAP + 12;
   var H = PT + CH + PB;
   var maxV = Math.max(BUDGET_YTD, ACTUAL_YTD) * 1.3;
-
   function py(v){ return PT + CH - Math.round(Math.max(v,0)/maxV*CH); }
-  function fmtK(v){
-    var abs = Math.abs(v);
-    return abs>=1000?(abs/1000).toFixed(1)+'k':Math.round(abs)+'';
-  }
+  function fmtK(v){ var a=Math.abs(v); return a>=1000?(a/1000).toFixed(1)+'k':Math.round(a)+''; }
 
   var out = '<svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 '+W+' '+H+'" style="display:block">';
-
-  // Grid lines
-  for(var g=1; g<=4; g++){
-    var gv = maxV*g/4, gy = py(gv);
-    out += '<line x1="'+PL+'" y1="'+gy+'" x2="'+(W-4)+'" y2="'+gy+'" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>';
-    out += '<text x="'+(PL-5)+'" y="'+(gy+4)+'" text-anchor="end" font-size="9" fill="#4a4a55" font-family="sans-serif">'+fmtK(gv)+'</text>';
+  for(var g=1;g<=4;g++){
+    var gv=maxV*g/4, gy=py(gv);
+    out+='<line x1="'+PL+'" y1="'+gy+'" x2="'+(W-4)+'" y2="'+gy+'" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>';
+    out+='<text x="'+(PL-5)+'" y="'+(gy+4)+'" text-anchor="end" font-size="9" fill="#4a4a55" font-family="sans-serif">'+fmtK(gv)+'</text>';
   }
-  // X axis
-  out += '<line x1="'+PL+'" y1="'+py(0)+'" x2="'+(W-4)+'" y2="'+py(0)+'" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>';
+  out+='<line x1="'+PL+'" y1="'+py(0)+'" x2="'+(W-4)+'" y2="'+py(0)+'" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>';
 
-  steps.forEach(function(step, i){
-    var x = PL + i*(CW+GAP);
-    var cx = x + CW/2;
-    var col = step.isTot ? '#888888' : (step.delta >= 0 ? '#5b8dee' : '#e09a3a');
+  steps.forEach(function(step,i){
+    var x=PL+i*(CW+GAP), cx=x+CW/2;
+    var col = step.isTot ? '#888' : (step.delta>=0 ? '#5b8dee' : '#e09a3a');
     var yT, yB, bH;
-
     if(step.isTot){
-      yT = py(step.val);
-      yB = py(0);
-      bH = Math.max(yB - yT, 4);
+      yT=py(step.val); yB=py(0); bH=Math.max(yB-yT,4);
     } else {
-      yB = py(step.base);
-      var rawH = Math.round(step.val/maxV*CH);
-      bH = Math.max(rawH, 30); // min 30px so small bars are visible
-      yT = yB - bH;
+      yB=py(step.base);
+      bH=Math.max(Math.round(step.val/maxV*CH),30);
+      yT=yB-bH;
     }
-
-    // Bar
-    out += '<rect x="'+x+'" y="'+yT+'" width="'+CW+'" height="'+bH+'" fill="'+col+'" rx="2" opacity="0.9"/>';
-
-    // Label
-    var lbl = step.isTot
-      ? 'OMR '+fmtK(step.val)
-      : (step.delta > 0 ? '+' : step.delta < 0 ? '-' : '') + fmtK(step.delta);
-    var lw = lbl.length*6.5+12;
-    out += '<rect x="'+(cx-lw/2)+'" y="'+(yT-21)+'" width="'+lw+'" height="16" rx="3" fill="#0d0d0f"/>';
-    out += '<text x="'+cx+'" y="'+(yT-9)+'" text-anchor="middle" font-size="10" font-weight="bold" fill="'+col+'" font-family="sans-serif">'+lbl+'</text>';
-
-    // Connector to next bar
-    if(i < steps.length-1){
-      var connY = step.isTot ? py(step.val) : (step.delta >= 0 ? yT : yB);
-      out += '<line x1="'+(x+CW)+'" y1="'+connY+'" x2="'+(x+CW+GAP)+'" y2="'+connY+'" stroke="rgba(255,255,255,0.2)" stroke-width="1" stroke-dasharray="4,3"/>';
+    out+='<rect x="'+x+'" y="'+yT+'" width="'+CW+'" height="'+bH+'" fill="'+col+'" rx="2" opacity="0.9"/>';
+    var lbl=step.isTot?'OMR '+fmtK(step.val):(step.delta>=0?'+':'-')+fmtK(step.delta);
+    var lw=lbl.length*6.5+12;
+    out+='<rect x="'+(cx-lw/2)+'" y="'+(yT-21)+'" width="'+lw+'" height="16" rx="3" fill="#0d0d0f"/>';
+    out+='<text x="'+cx+'" y="'+(yT-9)+'" text-anchor="middle" font-size="10" font-weight="bold" fill="'+col+'" font-family="sans-serif">'+lbl+'</text>';
+    if(i<steps.length-1){
+      var connY=step.isTot?py(step.val):(step.delta>=0?yT:yB);
+      out+='<line x1="'+(x+CW)+'" y1="'+connY+'" x2="'+(x+CW+GAP)+'" y2="'+connY+'" stroke="rgba(255,255,255,0.2)" stroke-width="1" stroke-dasharray="4,3"/>';
     }
-
-    // X labels
-    var xlbls = step.label.split('\n');
-    xlbls.forEach(function(ln, li){
-      out += '<text x="'+cx+'" y="'+(py(0)+15+li*13)+'" text-anchor="middle" font-size="9" fill="#7a7a85" font-family="sans-serif">'+ln+'</text>';
+    step.label.split('\n').forEach(function(ln,li){
+      out+='<text x="'+cx+'" y="'+(py(0)+15+li*13)+'" text-anchor="middle" font-size="9" fill="#7a7a85" font-family="sans-serif">'+ln+'</text>';
     });
   });
-
-  out += '</svg>';
-  wrap.innerHTML = out;
+  out+='</svg>';
+  wrap.innerHTML=out;
 }
 
 // ═══════════════════════════════════
@@ -1186,7 +1139,7 @@ function exportCSV(){
   const csv=rows.map(r=>r.map(c=>`"${c}"`).join(',')).join('\n');
   const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='portfolio_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
 }
-window.addEventListener('resize', ()=>{ if(document.getElementById('page-dashboard').classList.contains('active')) renderWaterfall(); });
+// waterfall resize listener removed
 </script>
 </body>
 </html>
