@@ -690,7 +690,7 @@ function renderPage(id){
 // ═══════════════════════════════════
 function renderWaterfall(){
   const wrap = document.getElementById('waterfallWrap');
-  if(!wrap) return;
+  if(!wrap){ console.log('waterfallWrap not found'); return; }
 
   const BUDGET_YTD = 12176.3;
   const paid = payments.filter(p=>p.status==='paid');
@@ -698,13 +698,18 @@ function renderWaterfall(){
   const totalExp  = expenses.reduce((s,e)=>s+Number(e.amount),0);
   const ACTUAL_YTD = totalPaid - totalExp;
 
+  console.log('WF: BUDGET_YTD='+BUDGET_YTD+' ACTUAL_YTD='+ACTUAL_YTD+' paid='+paid.length);
+
+  const bSlice = (arr) => arr.slice(0,2).reduce((s,v)=>s+(v||0),0);
+  const aSum   = (prop) => paid.filter(p=>p.property===prop).reduce((s,p)=>s+Number(p.amount),0);
+
   const propData = [
-    {label:'Rahba',      b:BUDGET.rahba_total.slice(0,2).reduce((s,v)=>s+(v||0),0), a:paid.filter(p=>p.property==='rahba').reduce((s,p)=>s+Number(p.amount),0)},
-    {label:'Tilal',      b:BUDGET.tilal.slice(0,2).reduce((s,v)=>s+(v||0),0),       a:paid.filter(p=>p.property==='tilal').reduce((s,p)=>s+Number(p.amount),0)},
-    {label:'Luban',      b:BUDGET.luban.slice(0,2).reduce((s,v)=>s+(v||0),0),       a:paid.filter(p=>p.property==='luban').reduce((s,p)=>s+Number(p.amount),0)},
-    {label:'Residence',  b:BUDGET.residence.slice(0,2).reduce((s,v)=>s+(v||0),0),   a:paid.filter(p=>p.property==='residence').reduce((s,p)=>s+Number(p.amount),0)},
-    {label:'Reehan',     b:BUDGET.reehan.slice(0,2).reduce((s,v)=>s+(v||0),0),      a:paid.filter(p=>p.property==='reehan').reduce((s,p)=>s+Number(p.amount),0)},
-    {label:'Manchester', b:BUDGET.manchester.slice(0,2).reduce((s,v)=>s+(v||0),0),  a:paid.filter(p=>p.property==='manchester').reduce((s,p)=>s+Number(p.amount),0)},
+    {label:'Rahba',      b:bSlice(BUDGET.rahba_total), a:aSum('rahba')},
+    {label:'Tilal',      b:bSlice(BUDGET.tilal),       a:aSum('tilal')},
+    {label:'Luban',      b:bSlice(BUDGET.luban),       a:aSum('luban')},
+    {label:'Residence',  b:bSlice(BUDGET.residence),   a:aSum('residence')},
+    {label:'Reehan',     b:bSlice(BUDGET.reehan),      a:aSum('reehan')},
+    {label:'Manchester', b:bSlice(BUDGET.manchester),  a:aSum('manchester')},
   ].filter(p=>p.b!==0||p.a!==0);
 
   const steps = [{lines:['Budget','YTD'], val:BUDGET_YTD, base:0, type:'total'}];
@@ -712,8 +717,7 @@ function renderWaterfall(){
   propData.forEach(p=>{
     const d = p.a - p.b;
     if(Math.abs(d)<0.5) return;
-    const base = d<0 ? run+d : run;
-    steps.push({lines:[p.label], val:Math.abs(d), base:base, delta:d, type:d>=0?'up':'down'});
+    steps.push({lines:[p.label], val:Math.abs(d), base:d<0?run+d:run, delta:d, type:d>=0?'up':'down'});
     run += d;
   });
   if(totalExp>0.5){
@@ -722,35 +726,34 @@ function renderWaterfall(){
   }
   steps.push({lines:['Actual','YTD'], val:ACTUAL_YTD, base:0, type:'total'});
 
-  const CW=52, GAP=30, PL=48, PT=30, PB=44, CH=160;
-  const W = PL + steps.length*(CW+GAP) - GAP + 12;
-  const H = PT + CH + PB;
-  const maxV = Math.max(BUDGET_YTD, ACTUAL_YTD, run) * 1.28;
+  console.log('WF steps:'+steps.length);
 
-  function py(v){ return PT + CH - Math.round(Math.max(v,0)/maxV*CH); }
-  function fmtK(v){ return v>=1000?(v/1000).toFixed(1)+'k':Math.round(v)+''; }
-  const C = {total:'#888', up:'#5b8dee', down:'#e09a3a'};
+  const CW=52,GAP=30,PL=48,PT=30,PB=44,CH=160;
+  const W=PL+steps.length*(CW+GAP)-GAP+12, H=PT+CH+PB;
+  const maxV=Math.max(BUDGET_YTD,ACTUAL_YTD)*1.28||1;
+  const py=v=>PT+CH-Math.round(Math.max(v,0)/maxV*CH);
+  const fmtK=v=>v>=1000?(v/1000).toFixed(1)+'k':Math.round(v)+'';
+  const C={total:'#888',up:'#5b8dee',down:'#e09a3a'};
 
-  let s = '<svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 '+W+' '+H+'" style="display:block;overflow:visible">';
+  let s=`<svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 ${W} ${H}" style="display:block;overflow:visible">`;
   for(let i=1;i<=4;i++){
-    const v=maxV*i/4, y=py(v);
+    const v=maxV*i/4,y=py(v);
     s+=`<line x1="${PL}" y1="${y}" x2="${W-4}" y2="${y}" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>`;
     s+=`<text x="${PL-5}" y="${y+4}" text-anchor="end" font-size="9" fill="#4a4a55" font-family="sans-serif">${fmtK(v)}</text>`;
   }
   s+=`<line x1="${PL}" y1="${py(0)}" x2="${W-4}" y2="${py(0)}" stroke="rgba(255,255,255,0.18)" stroke-width="1"/>`;
-
   steps.forEach((step,i)=>{
-    const x=PL+i*(CW+GAP), cx=x+CW/2, col=C[step.type];
-    const yT = step.type==='total' ? py(step.val) : py(step.base+step.val);
-    const yB = step.type==='total' ? py(0)        : py(step.base);
-    const bH = Math.max(yB-yT,3);
+    const x=PL+i*(CW+GAP),cx=x+CW/2,col=C[step.type];
+    const yT=step.type==='total'?py(step.val):py(step.base+step.val);
+    const yB=step.type==='total'?py(0):py(step.base);
+    const bH=Math.max(yB-yT,3);
     s+=`<rect x="${x}" y="${yT}" width="${CW}" height="${bH}" fill="${col}" rx="2" opacity="0.88"/>`;
-    const lbl = step.type==='total' ? 'OMR '+fmtK(step.val) : (step.delta>=0?'+':'-')+fmtK(Math.abs(step.delta));
-    const lw = lbl.length*6.2+10;
+    const lbl=step.type==='total'?'OMR '+fmtK(step.val):(step.delta>=0?'+':'-')+fmtK(Math.abs(step.delta));
+    const lw=lbl.length*6.2+10;
     s+=`<rect x="${cx-lw/2}" y="${yT-20}" width="${lw}" height="15" rx="3" fill="#0e0e10"/>`;
     s+=`<text x="${cx}" y="${yT-9}" text-anchor="middle" font-size="10" font-weight="600" fill="${col}" font-family="sans-serif">${lbl}</text>`;
     if(i<steps.length-1){
-      const cy2 = step.type==='total' ? py(step.val) : (step.delta>=0 ? py(step.base+step.val) : py(step.base));
+      const cy2=step.type==='total'?py(step.val):step.delta>=0?py(step.base+step.val):py(step.base);
       s+=`<line x1="${x+CW}" y1="${cy2}" x2="${x+CW+GAP}" y2="${cy2}" stroke="rgba(255,255,255,0.25)" stroke-width="1" stroke-dasharray="4,3"/>`;
     }
     step.lines.forEach((ln,li)=>{
@@ -758,7 +761,8 @@ function renderWaterfall(){
     });
   });
   s+='</svg>';
-  wrap.innerHTML = s;
+  wrap.innerHTML=s;
+  console.log('WF: done, SVG length='+s.length);
 }
 
 // ═══════════════════════════════════
@@ -774,6 +778,7 @@ function renderDashboard(){
   const mx=Math.max(...byProp.map(x=>x.val),1);
   document.getElementById('incomeChart').innerHTML=byProp.length?byProp.map(r=>`<div class="bar-row"><div class="bar-name">${r.name}</div><div class="bar-track"><div class="bar-fill" style="width:${(r.val/mx*100).toFixed(1)}%"></div></div><div class="bar-val">OMR ${fmtN(r.val)}</div></div>`).join(''):'<div class="empty">No payments yet</div>';
   renderExpiryTracker();
+  renderWaterfall();
   const recent=[...payments].sort((a,b)=>new Date(b.due)-new Date(a.due)).slice(0,6);
   document.getElementById('recentPayments').innerHTML=recent.length?recent.map(p=>`<tr><td>${getPropName(p.property)}</td><td>${p.tenant||'—'}</td><td class="text-gold">OMR ${fmtN(p.amount)}</td><td>${fmtDate(p.due)}</td><td>${statusBadge(p.status)}</td></tr>`).join(''):'<tr><td colspan="5" class="empty">No payments yet</td></tr>';
 }
