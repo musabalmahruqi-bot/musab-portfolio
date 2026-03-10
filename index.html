@@ -543,7 +543,13 @@ async function resetAndReload(){if(!confirm("Reset all data to defaults? This wi
 // ═══════════════════════════════════
 async function jbGet(){
   try{
-    const r = await fetch(`${JSONBIN_BASE}/${BIN_ID}/latest`,{headers:{'X-Master-Key':JSONBIN_KEY}});
+    const controller = new AbortController();
+    const timeout = setTimeout(()=>controller.abort(), 8000);
+    const r = await fetch(`${JSONBIN_BASE}/${BIN_ID}/latest`,{
+      headers:{'X-Master-Key':JSONBIN_KEY},
+      signal:controller.signal
+    });
+    clearTimeout(timeout);
     if(!r.ok) return null;
     const j = await r.json();
     return j.record;
@@ -563,20 +569,24 @@ async function jbSave(data){
 
 async function loadData(){
   setSyncStatus('loading');
-  const data = await jbGet();
-  if(data && data.payments && data.payments.length > 0){
-    payments = data.payments;
-    expenses = data.expenses;
-    tenants  = data.tenants;
-    setSyncStatus('ok');
-  } else {
-    // First time — load defaults and save
+  try {
+    const data = await jbGet();
+    if(data && data.payments && data.payments.length > 0){
+      payments = data.payments;
+      expenses = data.expenses;
+      tenants  = data.tenants;
+    } else {
+      payments = DEFAULT_DATA.payments;
+      expenses = DEFAULT_DATA.expenses;
+      tenants  = DEFAULT_DATA.tenants;
+      jbSave({payments,expenses,tenants}); // fire and forget, don't await
+    }
+  } catch(e) {
     payments = DEFAULT_DATA.payments;
     expenses = DEFAULT_DATA.expenses;
     tenants  = DEFAULT_DATA.tenants;
-    await jbSave({payments,expenses,tenants});
-    setSyncStatus('ok');
   }
+  setSyncStatus('ok');
   renderPage(currentPage);
 }
 
