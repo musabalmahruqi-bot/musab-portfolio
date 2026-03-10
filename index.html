@@ -665,35 +665,24 @@ function renderWaterfall(){
   const wrap = document.getElementById('waterfallWrap');
   if(!wrap) return;
 
-  // Use SAME logic as renderBudget():
-  // budgetYTD = sum of completed months only (slice 0 to curMonth, not curMonth+1)
-  // actualYTD = ALL paid payments (no month filter)
-  const curMonth = new Date().getMonth(); // 0=Jan,1=Feb,2=Mar...
-
-  const bRahba      = BUDGET.rahba_total.slice(0,curMonth).reduce((s,v)=>s+(v||0),0);
-  const bTilal      = BUDGET.tilal.slice(0,curMonth).reduce((s,v)=>s+(v||0),0);
-  const bLuban      = BUDGET.luban.slice(0,curMonth).reduce((s,v)=>s+(v||0),0);
-  const bResidence  = BUDGET.residence.slice(0,curMonth).reduce((s,v)=>s+(v||0),0);
-  const bReehan     = BUDGET.reehan.slice(0,curMonth).reduce((s,v)=>s+(v||0),0);
-  const bManchester = BUDGET.manchester.slice(0,curMonth).reduce((s,v)=>s+(v||0),0);
-  const BUDGET_YTD  = bRahba+bTilal+bLuban+bResidence+bReehan+bManchester;
+  // Mirror renderBudget() exactly:
+  // budgetYTD = hardcoded 12176.3
+  // actualYTD = total paid - total expenses (netYTD)
+  const BUDGET_YTD = 12176.3;
 
   const paid = payments.filter(p=>p.status==='paid');
-  const aRahba      = paid.filter(p=>p.property==='rahba').reduce((s,p)=>s+Number(p.amount),0);
-  const aTilal      = paid.filter(p=>p.property==='tilal').reduce((s,p)=>s+Number(p.amount),0);
-  const aLuban      = paid.filter(p=>p.property==='luban').reduce((s,p)=>s+Number(p.amount),0);
-  const aResidence  = paid.filter(p=>p.property==='residence').reduce((s,p)=>s+Number(p.amount),0);
-  const aReehan     = paid.filter(p=>p.property==='reehan').reduce((s,p)=>s+Number(p.amount),0);
-  const aManchester = paid.filter(p=>p.property==='manchester').reduce((s,p)=>s+Number(p.amount),0);
-  const ACTUAL_YTD  = aRahba+aTilal+aLuban+aResidence+aReehan+aManchester;
+  const totalPaid = paid.reduce((s,p)=>s+Number(p.amount),0);
+  const totalExp  = expenses.reduce((s,e)=>s+Number(e.amount),0);
+  const ACTUAL_YTD = totalPaid - totalExp;
 
+  // Per-property breakdown (income only, matching what budget page shows per row)
   const propData = [
-    {label:'Rahba',      b:bRahba,      a:aRahba},
-    {label:'Tilal',      b:bTilal,      a:aTilal},
-    {label:'Luban',      b:bLuban,      a:aLuban},
-    {label:'Residence',  b:bResidence,  a:aResidence},
-    {label:'Reehan',     b:bReehan,     a:aReehan},
-    {label:'Manchester', b:bManchester, a:aManchester},
+    {label:'Rahba',      b:BUDGET.rahba_total.slice(0,2).reduce((s,v)=>s+(v||0),0), a:paid.filter(p=>p.property==='rahba').reduce((s,p)=>s+Number(p.amount),0)},
+    {label:'Tilal',      b:BUDGET.tilal.slice(0,2).reduce((s,v)=>s+(v||0),0),       a:paid.filter(p=>p.property==='tilal').reduce((s,p)=>s+Number(p.amount),0)},
+    {label:'Luban',      b:BUDGET.luban.slice(0,2).reduce((s,v)=>s+(v||0),0),       a:paid.filter(p=>p.property==='luban').reduce((s,p)=>s+Number(p.amount),0)},
+    {label:'Residence',  b:BUDGET.residence.slice(0,2).reduce((s,v)=>s+(v||0),0),   a:paid.filter(p=>p.property==='residence').reduce((s,p)=>s+Number(p.amount),0)},
+    {label:'Reehan',     b:BUDGET.reehan.slice(0,2).reduce((s,v)=>s+(v||0),0),      a:paid.filter(p=>p.property==='reehan').reduce((s,p)=>s+Number(p.amount),0)},
+    {label:'Manchester', b:BUDGET.manchester.slice(0,2).reduce((s,v)=>s+(v||0),0),  a:paid.filter(p=>p.property==='manchester').reduce((s,p)=>s+Number(p.amount),0)},
   ].filter(p=>p.b!==0||p.a!==0);
 
   const steps = [{label:'Budget\nYTD', val:BUDGET_YTD, base:0, type:'total'}];
@@ -705,12 +694,18 @@ function renderWaterfall(){
     steps.push({label:p.label, val:Math.abs(d), base:base, delta:d, type:d>=0?'up':'down'});
     run += d;
   });
+  // Add expenses as a step if any
+  if(totalExp>0.5){
+    const base = run - totalExp;
+    steps.push({label:'Expenses', val:totalExp, base:base, delta:-totalExp, type:'down'});
+    run -= totalExp;
+  }
   steps.push({label:'Actual\nYTD', val:ACTUAL_YTD, base:0, type:'total'});
 
   const CW=52, GAP=30, PL=48, PT=30, PB=44, CH=160;
   const W = PL + steps.length*(CW+GAP) - GAP + 12;
   const H = PT + CH + PB;
-  const maxV = Math.max(BUDGET_YTD, ACTUAL_YTD) * 1.28;
+  const maxV = Math.max(BUDGET_YTD, ACTUAL_YTD, run) * 1.28;
 
   function py(v){ return PT + CH - Math.round(Math.max(v,0)/maxV*CH); }
   function fmtK(v){ return v>=1000?(v/1000).toFixed(1)+'k':Math.round(v)+''; }
