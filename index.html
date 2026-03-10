@@ -228,6 +228,8 @@ tbody tr:hover{background:var(--surface2);}
       <div class="nav-item" onclick="showPage('reports',this)"><span class="nav-icon">▦</span>Reports</div>
       <div class="nav-label">2026</div>
       <div class="nav-item" onclick="showPage('budget2026',this)"><span class="nav-icon">▣</span>Budget vs Actual</div>
+      <div class="nav-label">History</div>
+      <div class="nav-item" onclick="showPage('prevyears',this)"><span class="nav-icon">◷</span>Previous Years</div>
       <div class="nav-label">Tenants</div>
       <div class="nav-item" onclick="showPage('tenants',this)"><span class="nav-icon">○</span>Tenants</div>
     </nav>
@@ -346,6 +348,8 @@ tbody tr:hover{background:var(--surface2);}
         <div class="section-header"><div class="section-title">Contract Renewals <span>all properties</span></div></div>
         <div class="table-card"><table><thead><tr><th>Property</th><th>Unit</th><th>Tenant</th><th>Monthly Rent</th><th>Expiry</th><th>Days Left</th><th>Status</th></tr></thead><tbody id="expiryTable"></tbody></table></div>
       </div>
+
+      <div class="page" id="page-prevyears"></div>
 
       <div class="page" id="page-tenants">
         <div class="table-card">
@@ -505,8 +509,6 @@ const DEFAULT_DATA = {
     {id:13,property:'rahba',unit:'r2',tenant:'Saqib',amount:600,due:'2026-03-01',paid:'',status:'pending',notes:'Mar'},
     {id:14,property:'rahba',unit:'r4',tenant:'Tony',amount:620,due:'2026-03-01',paid:'',status:'pending',notes:'Mar'},
     {id:15,property:'rahba',unit:'r10',tenant:'Lulua',amount:550,due:'2026-03-01',paid:'',status:'pending',notes:'Mar'},
-    {id:21,property:'rahba',unit:'r8',tenant:'',amount:1140,due:'2026-03-01',paid:'',status:'pending',notes:'Quarterly Mar'},
-    {id:22,property:'rahba',unit:'roof',tenant:'',amount:2070,due:'2026-03-01',paid:'',status:'pending',notes:'Mar'},
     {id:16,property:'luban',unit:'l1',tenant:'Wave Tenant',amount:1575,due:'2026-04-01',paid:'',status:'pending',notes:'Apr'},
     {id:17,property:'reehan',unit:'re1',tenant:'',amount:13684.2,due:'2026-06-01',paid:'',status:'pending',notes:'Annual AED Jun'},
     {id:18,property:'residence',unit:'rs1',tenant:'',amount:14210.5,due:'2026-04-01',paid:'',status:'pending',notes:'Annual AED Apr'},
@@ -670,7 +672,7 @@ function nextId(arr){return arr.length>0?Math.max(...arr.map(x=>x.id||0))+1:1;}
 // ═══════════════════════════════════
 //  NAVIGATION
 // ═══════════════════════════════════
-const TITLES={dashboard:'Dashboard <span>— 2026</span>',properties:'Properties <span>— Portfolio</span>',rent:'Rent Tracking <span>— Ledger</span>',expenses:'Expenses <span>— Ledger</span>',reports:'Reports <span>— Analysis</span>',budget2026:'Budget vs Actual <span>— 2026</span>',tenants:'Tenants <span>— Register</span>'};
+const TITLES={prevyears:'Previous Years <span>— Historical Income</span>',dashboard:'Dashboard <span>— 2026</span>',properties:'Properties <span>— Portfolio</span>',rent:'Rent Tracking <span>— Ledger</span>',expenses:'Expenses <span>— Ledger</span>',reports:'Reports <span>— Analysis</span>',budget2026:'Budget vs Actual <span>— 2026</span>',tenants:'Tenants <span>— Register</span>'};
 
 function showPage(id,el){
   currentPage=id;
@@ -691,6 +693,7 @@ function renderPage(id){
   if(id==='reports')    renderReports();
   if(id==='budget2026'){ renderBudget(); }
   if(id==='tenants')    renderTenants();
+  if(id==='prevyears')  renderPrevYears();
   if(id==='renewals')   renderExpiryTracker();
 }
 
@@ -1228,6 +1231,144 @@ function editTenant(i){
   document.getElementById('modal-addTenant').classList.add('open');
 }
 function deleteTenant(i){if(!confirm('Delete this tenant?'))return;tenants.splice(i,1);saveData().then(()=>renderPage(currentPage));}
+
+
+// ═══════════════════════════════════
+//  PREVIOUS YEARS
+// ═══════════════════════════════════
+const PREV_DATA = {
+  rahba: {
+    label:'Rahba Hill', flag:'🇴🇲',
+    units:[
+      {name:'Villa 2 (Saqib)',  y2022:5250,  y2023:6111,  y2024:6277},
+      {name:'Villa 3',          y2022:7003,  y2023:6984,  y2024:7040},
+      {name:'Villa 4 (Tony)',   y2022:7800,  y2023:7116,  y2024:6740},
+      {name:'Villa 6',          y2022:6600,  y2023:5259,  y2024:2625},
+      {name:'Villa 7 (Bairoz)', y2022:6913,  y2023:6402,  y2024:3241},
+      {name:'Villa 8',          y2022:3900,  y2023:1640,  y2024:4993},
+      {name:'Villa 9 (Sarah)',  y2022:6110,  y2023:5815,  y2024:5090},
+      {name:'Villa 10 (Lulua)', y2022:1200,  y2023:5222,  y2024:5665},
+      {name:'Rooftop',          y2022:1801,  y2023:1800,  y2024:1800},
+    ],
+    net:{y2022:42876, y2023:44572, y2024:41413}
+  },
+  luban:      {label:'Almouj Luban',    flag:'🇴🇲', total:{y2022:5828,  y2023:4198,  y2024:5751}},
+  tilal:      {label:'Tilal (Sold)',    flag:'🇴🇲', total:{y2022:1935,  y2023:3102,  y2024:4800}},
+  residence:  {label:'Dubai Residence', flag:'🇦🇪', total:{y2022:13095, y2023:11975, y2024:3491}},
+  reehan:     {label:'Dubai Reehan',    flag:'🇦🇪', total:{y2022:8453,  y2023:9272,  y2024:10903}},
+  manchester: {label:'CitySuites Manchester', flag:'🇬🇧', total:{y2022:7048,  y2023:4520,  y2024:3045}},
+};
+
+function renderPrevYears(){
+  const page = document.getElementById('page-prevyears');
+  if(!page) return;
+
+  // 2026 YTD actual (paid only)
+  const paid = payments.filter(p=>p.status==='paid');
+  function ytd2026(propId){
+    return paid.filter(p=>p.property===propId)
+      .reduce((s,p)=>s+Number(p.amount),0);
+  }
+  function ytdExp2026(propId){
+    return expenses.filter(e=>e.property===propId)
+      .reduce((s,e)=>s+Number(e.amount),0);
+  }
+
+  const YEARS = ['2022','2023','2024','2026 YTD'];
+  const COL_GOLD = 'var(--gold)';
+  const COL_GREEN = 'var(--green)';
+  const COL_MUTED = 'var(--text-muted)';
+
+  function headerRow(){
+    return `<thead><tr>
+      <th style="min-width:160px">Unit / Property</th>
+      ${YEARS.map((y,i)=>`<th style="text-align:right;color:${i===3?COL_GREEN:COL_GOLD}">${y}</th>`).join('')}
+      <th style="text-align:right;color:var(--text-dim)">Trend</th>
+    </tr></thead>`;
+  }
+
+  function trendArrow(y2024, y2026ytd){
+    // Annualise YTD (Mar = 3 months)
+    const ann = y2026ytd * 4;
+    if(ann > y2024*1.05) return '<span style="color:var(--green)">↑</span>';
+    if(ann < y2024*0.95) return '<span style="color:var(--red)">↓</span>';
+    return '<span style="color:var(--text-muted)">→</span>';
+  }
+
+  function fmtC(v){ return v ? 'OMR '+fmtN(v) : '<span style="color:var(--text-dim)">—</span>'; }
+
+  let html = '';
+
+  // ── RAHBA HILL (expandable with unit breakdown) ──
+  const r = PREV_DATA.rahba;
+  const rahbaYTD = ytd2026('rahba') - ytdExp2026('rahba');
+  html += `<div class="table-card" style="margin-bottom:20px">
+    <div class="table-header">
+      <div class="table-title">${r.flag} ${r.label} <span style="font-size:12px;color:var(--text-muted);font-family:'DM Mono',monospace;margin-left:8px">Net income after expenses</span></div>
+    </div>
+    <table>${headerRow()}<tbody>`;
+
+  // Unit rows
+  r.units.forEach(u=>{
+    html += `<tr style="border-bottom:1px solid var(--border)">
+      <td style="color:var(--text-muted);padding-left:28px">${u.name}</td>
+      <td style="text-align:right;color:var(--gold)">${fmtC(u.y2022)}</td>
+      <td style="text-align:right;color:var(--gold)">${fmtC(u.y2023)}</td>
+      <td style="text-align:right;color:var(--gold)">${fmtC(u.y2024)}</td>
+      <td style="text-align:right;color:var(--green)">—</td>
+      <td style="text-align:right">${trendArrow(u.y2024,0)}</td>
+    </tr>`;
+  });
+
+  // Rahba Net subtotal
+  html += `<tr style="background:var(--surface2);font-weight:600;border-top:2px solid var(--border2)">
+    <td>Rahba Hill Net</td>
+    <td style="text-align:right;color:var(--gold)">${fmtC(r.net.y2022)}</td>
+    <td style="text-align:right;color:var(--gold)">${fmtC(r.net.y2023)}</td>
+    <td style="text-align:right;color:var(--gold)">${fmtC(r.net.y2024)}</td>
+    <td style="text-align:right;color:var(--green)">${fmtC(rahbaYTD)}</td>
+    <td style="text-align:right">${trendArrow(r.net.y2024, rahbaYTD)}</td>
+  </tr>`;
+
+  html += `</tbody></table></div>`;
+
+  // ── OTHER PROPERTIES ──
+  const others = ['luban','tilal','residence','reehan','manchester'];
+  html += `<div class="table-card" style="margin-bottom:20px">
+    <div class="table-header"><div class="table-title">Other Properties — Annual Income</div></div>
+    <table>${headerRow()}<tbody>`;
+
+  others.forEach(pid=>{
+    const d = PREV_DATA[pid];
+    const ytd = ytd2026(pid);
+    html += `<tr>
+      <td>${d.flag} ${d.label}</td>
+      <td style="text-align:right;color:var(--gold)">${fmtC(d.total.y2022)}</td>
+      <td style="text-align:right;color:var(--gold)">${fmtC(d.total.y2023)}</td>
+      <td style="text-align:right;color:var(--gold)">${fmtC(d.total.y2024)}</td>
+      <td style="text-align:right;color:var(--green)">${fmtC(ytd)}</td>
+      <td style="text-align:right">${trendArrow(d.total.y2024, ytd)}</td>
+    </tr>`;
+  });
+
+  html += `</tbody></table></div>`;
+
+  // ── GRAND TOTAL ──
+  const totalYTD = ytd2026(null) - ytdExp2026(null);
+  // ytd2026(null) won't work with filter, compute directly
+  const grandYTD = paid.reduce((s,p)=>s+Number(p.amount),0)
+                 - expenses.reduce((s,e)=>s+Number(e.amount),0);
+  const TOTALS = {y2022:78515, y2023:78503, y2024:62862};
+
+  html += `<div class="kpi-grid" style="grid-template-columns:repeat(4,1fr)">
+    <div class="kpi-card"><div class="kpi-label">2022 Total</div><div class="kpi-value"><span class="currency">OMR</span>${fmtN(TOTALS.y2022)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">2023 Total</div><div class="kpi-value"><span class="currency">OMR</span>${fmtN(TOTALS.y2023)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">2024 Total</div><div class="kpi-value"><span class="currency">OMR</span>${fmtN(TOTALS.y2024)}</div></div>
+    <div class="kpi-card" style="border-color:var(--green)"><div class="kpi-label">2026 YTD (Net)</div><div class="kpi-value" style="color:var(--green)"><span class="currency" style="color:var(--green)">OMR</span>${fmtN(grandYTD)}</div></div>
+  </div>`;
+
+  page.innerHTML = html;
+}
 
 // ═══════════════════════════════════
 //  EXPORT
