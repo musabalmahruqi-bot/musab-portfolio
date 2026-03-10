@@ -229,6 +229,7 @@ tbody tr:hover{background:var(--surface2);}
       <div class="nav-label">2026</div>
       <div class="nav-item" onclick="showPage('budget2026',this)"><span class="nav-icon">▣</span>Budget vs Actual</div>
       <div class="nav-label">Tenants</div>
+      <div class="nav-item" onclick="showPage('renewals',this)"><span class="nav-icon">↻</span>Contract Renewals</div>
       <div class="nav-item" onclick="showPage('tenants',this)"><span class="nav-icon">○</span>Tenants</div>
     </nav>
     <div class="nav-signout">
@@ -273,8 +274,7 @@ tbody tr:hover{background:var(--surface2);}
             </div>
           </div>
         </div>
-        <div class="section-header"><div class="section-title">Contract Renewals <span>all properties</span></div></div>
-        <div class="table-card"><table><thead><tr><th>Property</th><th>Unit</th><th>Tenant</th><th>Monthly Rent</th><th>Expiry</th><th>Days Left</th><th>Status</th></tr></thead><tbody id="expiryTable"></tbody></table></div>
+        <div id="expiryAlert"></div>
         <div class="section-header"><div class="section-title">Recent Payments <span>latest entries</span></div><button class="btn btn-ghost" onclick="showPage('rent',null)">View All</button></div>
         <div class="table-card"><table><thead><tr><th>Property</th><th>Tenant</th><th>Amount</th><th>Due</th><th>Status</th></tr></thead><tbody id="recentPayments"></tbody></table></div>
       </div>
@@ -342,6 +342,11 @@ tbody tr:hover{background:var(--surface2);}
           <div id="waterfallWrap"></div>
         </div>
         <div class="table-card" style="overflow-x:auto"><div id="bvaTable"></div></div>
+      </div>
+
+      <div class="page" id="page-renewals">
+        <div class="section-header"><div class="section-title">Contract Renewals <span>all properties</span></div></div>
+        <div class="table-card"><table><thead><tr><th>Property</th><th>Unit</th><th>Tenant</th><th>Monthly Rent</th><th>Expiry</th><th>Days Left</th><th>Status</th></tr></thead><tbody id="expiryTable"></tbody></table></div>
       </div>
 
       <div class="page" id="page-tenants">
@@ -867,6 +872,7 @@ function renderExpiryTracker(){
     const dl=exp?`<span class="text-red">${Math.abs(t.days)}d overdue</span>`:urg?`<span class="text-red">${t.days}d</span>`:`<span class="text-muted">${t.days}d</span>`;
     return`<tr class="${rc}"><td>${getProp(t.property)?.flag||''} ${getPropName(t.property)}</td><td>${getUnitName(t.property,t.unit)}</td><td>${t.name||'—'}</td><td class="text-gold">OMR ${fmtN(t.rent)}/mo</td><td>${fmtDate(t.end)}</td><td>${dl}</td><td>${pill}</td></tr>`;
   }).join('');
+  }
 }
 
 // ═══════════════════════════════════
