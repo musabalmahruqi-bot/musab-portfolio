@@ -571,9 +571,7 @@ async function jbSave(data){
 async function loadData(){
   setSyncStatus('loading');
   const loadingMsg = document.getElementById('loadingMsg');
-  if(loadingMsg) loadingMsg.textContent = 'Step 2: loadData started...';
-  await new Promise(r=>setTimeout(r,100)); // force UI repaint
-  if(loadingMsg) loadingMsg.textContent = 'Step 3: fetching from JSONBin...';
+  if(loadingMsg) loadingMsg.textContent = 'Connecting to database...';
   try{
     const data = await jbGet();
     if(data && data.payments && data.payments.length > 0){
@@ -624,7 +622,6 @@ function doLogin(){
   document.getElementById('loginScreen').style.display='none';
   document.getElementById('loadingScreen').style.display='flex';
   document.getElementById('userLabel').textContent=email;
-  document.getElementById('loadingMsg').textContent='Step 1: login ok, calling loadData...';
   // Absolute 12-second fallback — app will load no matter what
   const forceLoad = setTimeout(()=>{
     payments = payments.length ? payments : DEFAULT_DATA.payments;
@@ -695,18 +692,12 @@ function renderWaterfall(){
   const wrap = document.getElementById('waterfallWrap');
   if(!wrap) return;
 
-  // Mirror renderBudget() exactly:
-  // budgetYTD = hardcoded 12176.3
-  // actualYTD = total paid - total expenses (netYTD)
   const BUDGET_YTD = 12176.3;
+  const paid = payments.filter(p=>p.status==='paid');
+  const totalPaid = paid.reduce((s,p)=>s+Number(p.amount),0);
+  const totalExp  = expenses.reduce((s,e)=>s+Number(e.amount),0);
+  const ACTUAL_YTD = totalPaid - totalExp;
 
-  // Identical to renderBudget()
-  const paid=payments.filter(p=>p.status==='paid');
-  const actualYTD=paid.reduce((s,p)=>s+Number(p.amount),0);
-  const expYTD=expenses.reduce((s,e)=>s+Number(e.amount),0);
-  const ACTUAL_YTD=actualYTD-expYTD;
-
-  // Per-property breakdown (income only, matching what budget page shows per row)
   const propData = [
     {label:'Rahba',      b:BUDGET.rahba_total.slice(0,2).reduce((s,v)=>s+(v||0),0), a:paid.filter(p=>p.property==='rahba').reduce((s,p)=>s+Number(p.amount),0)},
     {label:'Tilal',      b:BUDGET.tilal.slice(0,2).reduce((s,v)=>s+(v||0),0),       a:paid.filter(p=>p.property==='tilal').reduce((s,p)=>s+Number(p.amount),0)},
@@ -716,22 +707,20 @@ function renderWaterfall(){
     {label:'Manchester', b:BUDGET.manchester.slice(0,2).reduce((s,v)=>s+(v||0),0),  a:paid.filter(p=>p.property==='manchester').reduce((s,p)=>s+Number(p.amount),0)},
   ].filter(p=>p.b!==0||p.a!==0);
 
-  const steps = [{label:'Budget\nYTD', val:BUDGET_YTD, base:0, type:'total'}];
+  const steps = [{lines:['Budget','YTD'], val:BUDGET_YTD, base:0, type:'total'}];
   let run = BUDGET_YTD;
   propData.forEach(p=>{
     const d = p.a - p.b;
     if(Math.abs(d)<0.5) return;
     const base = d<0 ? run+d : run;
-    steps.push({label:p.label, val:Math.abs(d), base:base, delta:d, type:d>=0?'up':'down'});
+    steps.push({lines:[p.label], val:Math.abs(d), base:base, delta:d, type:d>=0?'up':'down'});
     run += d;
   });
-  // Add expenses as a step if any
   if(totalExp>0.5){
-    const base = run - totalExp;
-    steps.push({label:'Expenses', val:totalExp, base:base, delta:-totalExp, type:'down'});
+    steps.push({lines:['Expenses'], val:totalExp, base:run-totalExp, delta:-totalExp, type:'down'});
     run -= totalExp;
   }
-  steps.push({label:'Actual\nYTD', val:ACTUAL_YTD, base:0, type:'total'});
+  steps.push({lines:['Actual','YTD'], val:ACTUAL_YTD, base:0, type:'total'});
 
   const CW=52, GAP=30, PL=48, PT=30, PB=44, CH=160;
   const W = PL + steps.length*(CW+GAP) - GAP + 12;
@@ -743,7 +732,6 @@ function renderWaterfall(){
   const C = {total:'#888', up:'#5b8dee', down:'#e09a3a'};
 
   let s = '<svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 '+W+' '+H+'" style="display:block;overflow:visible">';
-
   for(let i=1;i<=4;i++){
     const v=maxV*i/4, y=py(v);
     s+=`<line x1="${PL}" y1="${y}" x2="${W-4}" y2="${y}" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>`;
@@ -756,26 +744,19 @@ function renderWaterfall(){
     const yT = step.type==='total' ? py(step.val) : py(step.base+step.val);
     const yB = step.type==='total' ? py(0)        : py(step.base);
     const bH = Math.max(yB-yT,3);
-
     s+=`<rect x="${x}" y="${yT}" width="${CW}" height="${bH}" fill="${col}" rx="2" opacity="0.88"/>`;
-
-    const lbl = step.type==='total'
-      ? 'OMR '+fmtK(step.val)
-      : (step.delta>=0?'+':'-')+fmtK(Math.abs(step.delta));
+    const lbl = step.type==='total' ? 'OMR '+fmtK(step.val) : (step.delta>=0?'+':'-')+fmtK(Math.abs(step.delta));
     const lw = lbl.length*6.2+10;
     s+=`<rect x="${cx-lw/2}" y="${yT-20}" width="${lw}" height="15" rx="3" fill="#0e0e10"/>`;
     s+=`<text x="${cx}" y="${yT-9}" text-anchor="middle" font-size="10" font-weight="600" fill="${col}" font-family="sans-serif">${lbl}</text>`;
-
     if(i<steps.length-1){
       const cy2 = step.type==='total' ? py(step.val) : (step.delta>=0 ? py(step.base+step.val) : py(step.base));
       s+=`<line x1="${x+CW}" y1="${cy2}" x2="${x+CW+GAP}" y2="${cy2}" stroke="rgba(255,255,255,0.25)" stroke-width="1" stroke-dasharray="4,3"/>`;
     }
-
-    step.label.split('\n').forEach((ln,li)=>{
+    step.lines.forEach((ln,li)=>{
       s+=`<text x="${cx}" y="${py(0)+14+li*12}" text-anchor="middle" font-size="9" fill="#7a7a85" font-family="sans-serif">${ln}</text>`;
     });
   });
-
   s+='</svg>';
   wrap.innerHTML = s;
 }
