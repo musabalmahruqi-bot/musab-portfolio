@@ -338,6 +338,15 @@ tbody tr:hover{background:var(--surface2);}
           <div class="kpi-card"><div class="kpi-label">YTD Budget (Jan-Feb)</div><div class="kpi-value"><span class="currency">OMR</span>12,176</div></div>
           <div class="kpi-card"><div class="kpi-label">YTD Variance</div><div class="kpi-value"><span id="bva-var">—</span></div></div>
         </div>
+        <div class="chart-card" style="margin-bottom:24px">
+          <div class="chart-label">Budget vs Actual — Waterfall YTD 2026</div>
+          <div style="display:flex;gap:16px;margin-bottom:8px">
+            <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text-muted)"><div style="width:10px;height:10px;border-radius:2px;background:#5b8dee"></div>Above budget</div>
+            <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text-muted)"><div style="width:10px;height:10px;border-radius:2px;background:#e09a3a"></div>Below budget</div>
+            <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text-muted)"><div style="width:10px;height:10px;border-radius:2px;background:#888"></div>Total</div>
+          </div>
+          <div id="waterfallWrap"></div>
+        </div>
         <div class="table-card" style="overflow-x:auto"><div id="bvaTable"></div></div>
       </div>
 
@@ -680,7 +689,7 @@ function renderPage(id){
   if(id==='rent')       renderRentTable();
   if(id==='expenses')   renderExpTable();
   if(id==='reports')    renderReports();
-  if(id==='budget2026') renderBudget();
+  if(id==='budget2026'){ renderBudget(); }
   if(id==='tenants')    renderTenants();
 }
 
@@ -904,6 +913,7 @@ function getActualExpenseByProp(prop, monthIdx){
 }
 
 function renderBudget(){
+  renderWaterfall();
   const paid=payments.filter(p=>p.status==='paid');
   const actualYTD=paid.reduce((s,p)=>s+Number(p.amount),0);
   const expYTD=expenses.reduce((s,e)=>s+Number(e.amount),0);
