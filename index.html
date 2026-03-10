@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- BUILD-20260310-M -->
+<!-- BUILD-20260310-N -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -642,6 +642,7 @@ function doLogin(){
     clearTimeout(forceLoad);
     document.getElementById('loadingScreen').style.display='none';
     document.getElementById('appShell').style.display='block';
+    renderPage(currentPage);
   });
 }
 
