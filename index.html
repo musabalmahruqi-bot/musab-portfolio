@@ -665,96 +665,117 @@ function renderWaterfall(){
   const wrap = document.getElementById('waterfallWrap');
   if(!wrap) return;
 
-  const curMonth = new Date().getMonth();
+  const curMonth = new Date().getMonth(); // 0=Jan, 1=Feb, etc
   const paid = payments.filter(p=>p.status==='paid');
 
-  const propActuals = PROPERTIES.map(p=>({
-    id:p.id, name:p.name,
-    actual:paid.filter(x=>x.property===p.id).reduce((s,x)=>s+Number(x.amount),0)
-  }));
+  // Use BUDGET object directly (same as Budget vs Actual page uses)
+  // Sum only months up to current month (YTD)
+  const budgetByProp = {
+    rahba:      BUDGET.rahba_total.slice(0,curMonth+1).reduce((s,v)=>s+(v||0),0),
+    luban:      BUDGET.luban.slice(0,curMonth+1).reduce((s,v)=>s+(v||0),0),
+    reehan:     BUDGET.reehan.slice(0,curMonth+1).reduce((s,v)=>s+(v||0),0),
+    residence:  BUDGET.residence.slice(0,curMonth+1).reduce((s,v)=>s+(v||0),0),
+    manchester: BUDGET.manchester.slice(0,curMonth+1).reduce((s,v)=>s+(v||0),0),
+    tilal:      BUDGET.tilal.slice(0,curMonth+1).reduce((s,v)=>s+(v||0),0),
+  };
 
-  const propBudgets = PROPERTIES.map(p=>{
-    const rows = EXCEL_ROWS.filter(r=>r.prop===p.id && r.cat!=='subtotal' && r.cat!=='expense' && r.cat!=='cumulative' && r.cat!=='total');
-    const b = rows.reduce((s,r)=>s+r.budget.slice(0,curMonth+1).reduce((a,v)=>a+(v||0),0),0);
-    return {id:p.id, name:p.name, budget:b};
-  });
+  // Actuals: sum paid payments per property YTD
+  const actualByProp = {
+    rahba:      paid.filter(p=>p.property==='rahba').reduce((s,p)=>s+Number(p.amount),0),
+    luban:      paid.filter(p=>p.property==='luban').reduce((s,p)=>s+Number(p.amount),0),
+    reehan:     paid.filter(p=>p.property==='reehan').reduce((s,p)=>s+Number(p.amount),0),
+    residence:  paid.filter(p=>p.property==='residence').reduce((s,p)=>s+Number(p.amount),0),
+    manchester: paid.filter(p=>p.property==='manchester').reduce((s,p)=>s+Number(p.amount),0),
+    tilal:      paid.filter(p=>p.property==='tilal').reduce((s,p)=>s+Number(p.amount),0),
+  };
 
-  const BUDGET_YTD = propBudgets.reduce((s,p)=>s+p.budget,0);
-  const ACTUAL_YTD = propActuals.reduce((s,p)=>s+p.actual,0);
+  const BUDGET_YTD = Object.values(budgetByProp).reduce((s,v)=>s+v,0);
+  const ACTUAL_YTD = Object.values(actualByProp).reduce((s,v)=>s+v,0);
 
-  // Build steps
+  // Build waterfall steps
+  const propList = [
+    {key:'rahba',      label:'Rahba'},
+    {key:'tilal',      label:'Tilal'},
+    {key:'luban',      label:'Luban'},
+    {key:'residence',  label:'Residence'},
+    {key:'reehan',     label:'Reehan'},
+    {key:'manchester', label:'Manchester'},
+  ];
+
   const steps = [];
-  steps.push({lines:['Budget','YTD'], start:0, end:BUDGET_YTD, type:'total'});
+  steps.push({lines:['Budget','YTD'], start:0, end:BUDGET_YTD, type:'total', delta:null});
+
   let running = BUDGET_YTD;
-  PROPERTIES.forEach(p=>{
-    const b = propBudgets.find(x=>x.id===p.id).budget;
-    const a = propActuals.find(x=>x.id===p.id).actual;
+  propList.forEach(p=>{
+    const b = budgetByProp[p.key]||0;
+    const a = actualByProp[p.key]||0;
     const delta = a - b;
-    if(delta===0 && b===0 && a===0) return;
+    if(Math.abs(delta) < 1 && b===0 && a===0) return;
     const s = delta>=0 ? running : running+delta;
     const e = delta>=0 ? running+delta : running;
-    const short = p.name.replace(' (Sold)','').replace('Almouj ','').replace(' Flat','').replace('CitySuites','Manchester').replace('Rahba Hill','Rahba');
-    steps.push({lines:[short], start:s, end:e, delta:delta, type:delta>=0?'up':'down'});
+    steps.push({lines:[p.label], start:s, end:e, delta:delta, type:delta>=0?'up':'down'});
     running += delta;
   });
-  steps.push({lines:['Actual','YTD'], start:0, end:ACTUAL_YTD, type:'total'});
+  steps.push({lines:['Actual','YTD'], start:0, end:ACTUAL_YTD, type:'total', delta:null});
 
-  const allV = steps.flatMap(s=>[s.start,s.end]);
+  // SVG dimensions
+  const COL_W = 52;
+  const GAP   = 32;
+  const PL    = 46;
+  const PT    = 28;
+  const PB    = 42;
+  const CHART_H = 160;
+  const totalW  = PL + steps.length*(COL_W+GAP) - GAP + 10;
+  const totalH  = PT + CHART_H + PB;
+
+  const allV = steps.flatMap(s=>[s.start,s.end]).filter(v=>v>=0);
   const maxV = Math.max(...allV) * 1.25 || 1;
-  const CHART_H = 180;
-  const COL_W = 60;   // fixed column width px
-  const GAP   = 28;   // gap between columns
-  const PL    = 44;   // left padding for y-axis
-  const PT    = 24;   // top padding for labels
-  const PB    = 38;   // bottom for x labels
-  const totalW = PL + steps.length*(COL_W+GAP) - GAP + 8;
 
-  function bpx(v){ return Math.round(v/maxV*CHART_H); }
+  function py(v){ return PT + CHART_H - Math.round(Math.max(v,0)/maxV*CHART_H); }
   function fmtV(v){ return v>=1000?(v/1000).toFixed(1)+'k':Math.round(v).toString(); }
-  const colors = {total:'#888', up:'#5b8dee', down:'#e09a3a'};
+  const C = {total:'#888888', up:'#5b8dee', down:'#e09a3a'};
 
-  // SVG-based — scales perfectly, no layout dependency
-  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 ${totalW} ${PT+CHART_H+PB}" style="display:block;overflow:visible">`;
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 ${totalW} ${totalH}" style="display:block;overflow:visible">`;
 
-  // Y grid lines & labels
+  // Y grid + labels
   for(let i=0;i<=4;i++){
     const v = maxV*i/4;
-    const y = PT + CHART_H - bpx(v);
-    svg += `<line x1="${PL}" y1="${y}" x2="${totalW}" y2="${y}" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>`;
-    svg += `<text x="${PL-5}" y="${y+4}" text-anchor="end" font-size="9" fill="#4a4a55" font-family="sans-serif">${v>0?fmtV(v):''}</text>`;
+    const y = py(v);
+    svg += `<line x1="${PL}" y1="${y}" x2="${totalW-4}" y2="${y}" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>`;
+    if(i>0) svg += `<text x="${PL-5}" y="${y+4}" text-anchor="end" font-size="9" fill="#4a4a55" font-family="sans-serif">${fmtV(v)}</text>`;
   }
-
   // X axis
-  svg += `<line x1="${PL}" y1="${PT+CHART_H}" x2="${totalW}" y2="${PT+CHART_H}" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>`;
+  svg += `<line x1="${PL}" y1="${py(0)}" x2="${totalW-4}" y2="${py(0)}" stroke="rgba(255,255,255,0.18)" stroke-width="1"/>`;
 
   steps.forEach((step, i)=>{
-    const x = PL + i*(COL_W+GAP);
-    const color = colors[step.type];
-    const barTop = PT + CHART_H - bpx(step.end);
-    const barBot = PT + CHART_H - bpx(step.start);
-    const barH   = Math.max(barBot - barTop, 3);
+    const x     = PL + i*(COL_W+GAP);
+    const cx    = x + COL_W/2;
+    const color = C[step.type];
+    const yTop  = py(step.end);
+    const yBot  = py(step.start);
+    const bH    = Math.max(yBot - yTop, 3);
 
     // Bar
-    svg += `<rect x="${x}" y="${barTop}" width="${COL_W}" height="${barH}" fill="${color}" rx="2"/>`;
+    svg += `<rect x="${x}" y="${yTop}" width="${COL_W}" height="${bH}" fill="${color}" rx="2" opacity="0.9"/>`;
 
-    // Value label above bar — always on top, clear background
+    // Label above bar
     const lbl = step.type==='total'
       ? 'OMR '+fmtV(step.end)
-      : (step.delta>0?'+':'')+Math.round(Math.abs(step.delta)).toLocaleString();
-    const lblY = barTop - 6;
-    // white bg pill for readability
-    svg += `<text x="${x+COL_W/2}" y="${lblY}" text-anchor="middle" font-size="10" font-weight="bold" fill="${color}" font-family="sans-serif">${lbl}</text>`;
+      : (step.delta>=0?'+':'')+Math.round(step.delta).toLocaleString();
+    // Background rect for readability
+    const lblW = lbl.length*6.5 + 8;
+    svg += `<rect x="${cx-lblW/2}" y="${yTop-19}" width="${lblW}" height="14" rx="3" fill="#111113"/>`;
+    svg += `<text x="${cx}" y="${yTop-8}" text-anchor="middle" font-size="10" font-weight="600" fill="${color}" font-family="sans-serif">${lbl}</text>`;
 
-    // Dashed connector to next bar
+    // Dashed connector to next
     if(i < steps.length-1){
-      const connY = step.type==='down' ? barBot : barTop;
-      const x2    = x + COL_W + GAP;
-      svg += `<line x1="${x+COL_W}" y1="${connY}" x2="${x2}" y2="${connY}" stroke="rgba(255,255,255,0.2)" stroke-width="1" stroke-dasharray="3,3"/>`;
+      const connY = step.type==='down' ? yBot : yTop;
+      svg += `<line x1="${x+COL_W}" y1="${connY}" x2="${x+COL_W+GAP}" y2="${connY}" stroke="rgba(255,255,255,0.22)" stroke-width="1" stroke-dasharray="4,3"/>`;
     }
 
-    // X axis labels
-    step.lines.forEach((line, li)=>{
-      svg += `<text x="${x+COL_W/2}" y="${PT+CHART_H+14+li*12}" text-anchor="middle" font-size="9" fill="#7a7a85" font-family="sans-serif">${line}</text>`;
+    // X labels
+    step.lines.forEach((line,li)=>{
+      svg += `<text x="${cx}" y="${py(0)+14+li*12}" text-anchor="middle" font-size="9" fill="#7a7a85" font-family="sans-serif">${line}</text>`;
     });
   });
 
