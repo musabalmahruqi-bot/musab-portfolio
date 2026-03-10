@@ -450,6 +450,33 @@ const BUDGET={
   total:[4096.3,8080,3239,23164.5,3570,18814.8,9832.8,4104.6,4213.8,4319.8,4162.2,4273.8],
 };
 
+// Budget figures per property per month (from Excel)
+// Each array = [Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec]
+const EXCEL_ROWS = [
+  // ── RAHBA HILL individual villas ──
+  {label:'Villa 2 (Saqib)',    prop:'rahba', unit:'r2',   budget:[600,600,600,600,600,396.8,620,620,620,620,620,620],     cat:'villa'},
+  {label:'Villa 3',            prop:'rahba', unit:'r3',   budget:[0,1800,0,1800,0,0,1636.8,0,0,0,1636.8,0],              cat:'villa'},
+  {label:'Villa 4 (Tony)',     prop:'rahba', unit:'r4',   budget:[620,620,620,620,620,620,620,620,620,620,396.8,620],     cat:'villa'},
+  {label:'Villa 6',            prop:'rahba', unit:'r6',   budget:[0,1800,0,0,1800,0,0,1800,0,0,1584,0],                  cat:'villa'},
+  {label:'Villa 7 (Bairoz)',   prop:'rahba', unit:'r7',   budget:[0,1140,0,1140,0,1140,0,1140,934.8,0,1140,0],           cat:'villa'},
+  {label:'Villa 8',            prop:'rahba', unit:'r8',   budget:[0,1140,0,1140,0,1140,0,1140,0,934.8,0,1140],           cat:'villa'},
+  {label:'Villa 9 (Sarah)',    prop:'rahba', unit:'r9',   budget:[0,0,1650,0,0,1650,0,0,1650,0,0,1504.8],                cat:'villa'},
+  {label:'Villa 10 (Lulua)',   prop:'rahba', unit:'r10',  budget:[550,550,550,550,550,364.8,570,570,570,570,570,570],     cat:'villa'},
+  {label:'Rooftop',            prop:'rahba', unit:'roof', budget:[0,0,2070,0,0,0,0,0,0,0,0,0],                           cat:'villa'},
+  {label:'Rahba Expenses',     prop:'rahba', unit:null,   budget:[0,-849,-2070,0,0,0,0,0,0,0,0,0],                       cat:'expense', exprow:true},
+  {label:'Rahba Hill Net',     prop:'rahba', unit:null,   budget:[920,7650,3420,5850,3570,5311.6,3446.8,5890,4394.8,2744.8,5947.6,4454.8], cat:'subtotal'},
+  // ── OTHER PROPERTIES ──
+  {label:'Tilal (Sold)',       prop:'tilal', unit:'t1',   budget:[420,430,0,0,0,0,0,0,0,0,0,0],                          cat:'property'},
+  {label:'Almouj Luban',       prop:'luban', unit:'l1',   budget:[1575,0,-181,1575,0,-181,1386,0,-181,1575,0,-181],       cat:'property'},
+  {label:'Dubai Residence',    prop:'residence',unit:'rs1',budget:[0,0,0,14210.5,0,0,0,-1785.4,0,0,0,0],                 cat:'property'},
+  {label:'Dubai Reehan',       prop:'reehan',unit:'re1',  budget:[0,0,0,0,0,13684.2,0,0,0,0,-1785.4,0],                  cat:'property'},
+  {label:'Manchester',         prop:'manchester',unit:'m1',budget:[1181.3,0,0,1529,0,0,5000,0,0,0,0,0],                  cat:'property'},
+  // ── TOTALS ──
+  {label:'TOTAL',              prop:null,    unit:null,   budget:[4096.3,8080,3239,23164.5,3570,18814.8,9832.8,4104.6,4213.8,4319.8,4162.2,4273.8], cat:'total'},
+  {label:'Cumulative',         prop:null,    unit:null,   budget:[4096.3,12176.3,15415.3,38579.8,42149.8,60964.6,70797.4,74902,79115.8,83435.6,87597.9,91871.7], cat:'cumulative'},
+];
+
+
 // ═══════════════════════════════════
 //  DEFAULT DATA
 // ═══════════════════════════════════
@@ -835,31 +862,6 @@ function switchTab(id,btn){document.querySelectorAll('.tab').forEach(t=>t.classL
 //  BUDGET — Full Excel cross-reference
 // ═══════════════════════════════════
 
-// Budget figures per property per month (from Excel)
-// Each array = [Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec]
-const EXCEL_ROWS = [
-  // ── RAHBA HILL individual villas ──
-  {label:'Villa 2 (Saqib)',    prop:'rahba', unit:'r2',   budget:[600,600,600,600,600,396.8,620,620,620,620,620,620],     cat:'villa'},
-  {label:'Villa 3',            prop:'rahba', unit:'r3',   budget:[0,1800,0,1800,0,0,1636.8,0,0,0,1636.8,0],              cat:'villa'},
-  {label:'Villa 4 (Tony)',     prop:'rahba', unit:'r4',   budget:[620,620,620,620,620,620,620,620,620,620,396.8,620],     cat:'villa'},
-  {label:'Villa 6',            prop:'rahba', unit:'r6',   budget:[0,1800,0,0,1800,0,0,1800,0,0,1584,0],                  cat:'villa'},
-  {label:'Villa 7 (Bairoz)',   prop:'rahba', unit:'r7',   budget:[0,1140,0,1140,0,1140,0,1140,934.8,0,1140,0],           cat:'villa'},
-  {label:'Villa 8',            prop:'rahba', unit:'r8',   budget:[0,1140,0,1140,0,1140,0,1140,0,934.8,0,1140],           cat:'villa'},
-  {label:'Villa 9 (Sarah)',    prop:'rahba', unit:'r9',   budget:[0,0,1650,0,0,1650,0,0,1650,0,0,1504.8],                cat:'villa'},
-  {label:'Villa 10 (Lulua)',   prop:'rahba', unit:'r10',  budget:[550,550,550,550,550,364.8,570,570,570,570,570,570],     cat:'villa'},
-  {label:'Rooftop',            prop:'rahba', unit:'roof', budget:[0,0,2070,0,0,0,0,0,0,0,0,0],                           cat:'villa'},
-  {label:'Rahba Expenses',     prop:'rahba', unit:null,   budget:[0,-849,-2070,0,0,0,0,0,0,0,0,0],                       cat:'expense', exprow:true},
-  {label:'Rahba Hill Net',     prop:'rahba', unit:null,   budget:[920,7650,3420,5850,3570,5311.6,3446.8,5890,4394.8,2744.8,5947.6,4454.8], cat:'subtotal'},
-  // ── OTHER PROPERTIES ──
-  {label:'Tilal (Sold)',       prop:'tilal', unit:'t1',   budget:[420,430,0,0,0,0,0,0,0,0,0,0],                          cat:'property'},
-  {label:'Almouj Luban',       prop:'luban', unit:'l1',   budget:[1575,0,-181,1575,0,-181,1386,0,-181,1575,0,-181],       cat:'property'},
-  {label:'Dubai Residence',    prop:'residence',unit:'rs1',budget:[0,0,0,14210.5,0,0,0,-1785.4,0,0,0,0],                 cat:'property'},
-  {label:'Dubai Reehan',       prop:'reehan',unit:'re1',  budget:[0,0,0,0,0,13684.2,0,0,0,0,-1785.4,0],                  cat:'property'},
-  {label:'Manchester',         prop:'manchester',unit:'m1',budget:[1181.3,0,0,1529,0,0,5000,0,0,0,0,0],                  cat:'property'},
-  // ── TOTALS ──
-  {label:'TOTAL',              prop:null,    unit:null,   budget:[4096.3,8080,3239,23164.5,3570,18814.8,9832.8,4104.6,4213.8,4319.8,4162.2,4273.8], cat:'total'},
-  {label:'Cumulative',         prop:null,    unit:null,   budget:[4096.3,12176.3,15415.3,38579.8,42149.8,60964.6,70797.4,74902,79115.8,83435.6,87597.9,91871.7], cat:'cumulative'},
-];
 
 function getActualByPropUnit(prop, unit, monthIdx){
   // monthIdx 0=Jan ... 11=Dec
