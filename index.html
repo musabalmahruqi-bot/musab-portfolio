@@ -638,14 +638,17 @@ function renderWaterfall(){
   const canvas = document.getElementById('waterfallChart');
   if(!canvas) return;
 
-  // Set actual pixel dimensions
-  const rect = canvas.getBoundingClientRect();
-  canvas.width  = rect.width  * window.devicePixelRatio;
-  canvas.height = rect.height * window.devicePixelRatio;
+  // Force explicit dimensions from parent width
+  const parentW = canvas.parentElement.clientWidth - 40;
+  const fixedH = 300;
+  canvas.width  = parentW * window.devicePixelRatio;
+  canvas.height = fixedH  * window.devicePixelRatio;
+  canvas.style.width  = parentW + 'px';
+  canvas.style.height = fixedH  + 'px';
   const ctx = canvas.getContext('2d');
   ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-  const W = rect.width;
-  const H = rect.height;
+  const W = parentW;
+  const H = fixedH;
 
   // Compute YTD actuals per property using due date month
   const paid = payments.filter(p=>p.status==='paid');
@@ -778,7 +781,7 @@ function renderDashboard(){
   const mx=Math.max(...byProp.map(x=>x.val),1);
   document.getElementById('incomeChart').innerHTML=byProp.length?byProp.map(r=>`<div class="bar-row"><div class="bar-name">${r.name}</div><div class="bar-track"><div class="bar-fill" style="width:${(r.val/mx*100).toFixed(1)}%"></div></div><div class="bar-val">OMR ${fmtN(r.val)}</div></div>`).join(''):'<div class="empty">No payments yet</div>';
   renderExpiryTracker();
-  setTimeout(renderWaterfall, 50);
+  setTimeout(renderWaterfall, 200);
   const recent=[...payments].sort((a,b)=>new Date(b.due)-new Date(a.due)).slice(0,6);
   document.getElementById('recentPayments').innerHTML=recent.length?recent.map(p=>`<tr><td>${getPropName(p.property)}</td><td>${p.tenant||'—'}</td><td class="text-gold">OMR ${fmtN(p.amount)}</td><td>${fmtDate(p.due)}</td><td>${statusBadge(p.status)}</td></tr>`).join(''):'<tr><td colspan="5" class="empty">No payments yet</td></tr>';
 }
@@ -1140,6 +1143,7 @@ function exportCSV(){
   const csv=rows.map(r=>r.map(c=>`"${c}"`).join(',')).join('\n');
   const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='portfolio_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
 }
+window.addEventListener('resize', ()=>{ if(document.getElementById('page-dashboard').classList.contains('active')) renderWaterfall(); });
 </script>
 </body>
 </html>
