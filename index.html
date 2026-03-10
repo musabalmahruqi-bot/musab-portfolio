@@ -1240,23 +1240,23 @@ const PREV_DATA = {
   rahba: {
     label:'Rahba Hill', flag:'🇴🇲',
     units:[
-      {name:'Villa 2 (Saqib)',  y2022:5250,  y2023:6111,  y2024:6277},
-      {name:'Villa 3',          y2022:7003,  y2023:6984,  y2024:7040},
-      {name:'Villa 4 (Tony)',   y2022:7800,  y2023:7116,  y2024:6740},
-      {name:'Villa 6',          y2022:6600,  y2023:5259,  y2024:2625},
-      {name:'Villa 7 (Bairoz)', y2022:6913,  y2023:6402,  y2024:3241},
-      {name:'Villa 8',          y2022:3900,  y2023:1640,  y2024:4993},
-      {name:'Villa 9 (Sarah)',  y2022:6110,  y2023:5815,  y2024:5090},
-      {name:'Villa 10 (Lulua)', y2022:1200,  y2023:5222,  y2024:5665},
-      {name:'Rooftop',          y2022:1801,  y2023:1800,  y2024:1800},
+      {name:'Villa 2 (Saqib)',  y2022:5250,  y2023:6111,  y2024:6277,  y2025:6734},
+      {name:'Villa 3',          y2022:7003,  y2023:6984,  y2024:7040,  y2025:7200},
+      {name:'Villa 4 (Tony)',   y2022:7800,  y2023:7116,  y2024:6740,  y2025:7011},
+      {name:'Villa 6',          y2022:6600,  y2023:5259,  y2024:2625,  y2025:2349},
+      {name:'Villa 7 (Bairoz)', y2022:6913,  y2023:6402,  y2024:3241,  y2025:6469},
+      {name:'Villa 8',          y2022:3900,  y2023:1640,  y2024:4993,  y2025:6350},
+      {name:'Villa 9 (Sarah)',  y2022:6110,  y2023:5815,  y2024:5090,  y2025:7496},
+      {name:'Villa 10 (Lulua)', y2022:1200,  y2023:5222,  y2024:5665,  y2025:3652},
+      {name:'Rooftop',          y2022:1801,  y2023:1800,  y2024:1800,  y2025:1800},
     ],
-    net:{y2022:42876, y2023:44572, y2024:41413}
+    net:{y2022:42876, y2023:44572, y2024:41413, y2025:42243}
   },
-  luban:      {label:'Almouj Luban',    flag:'🇴🇲', total:{y2022:5828,  y2023:4198,  y2024:5751}},
-  tilal:      {label:'Tilal (Sold)',    flag:'🇴🇲', total:{y2022:1935,  y2023:3102,  y2024:4800}},
-  residence:  {label:'Dubai Residence', flag:'🇦🇪', total:{y2022:13095, y2023:11975, y2024:3491}},
-  reehan:     {label:'Dubai Reehan',    flag:'🇦🇪', total:{y2022:8453,  y2023:9272,  y2024:10903}},
-  manchester: {label:'CitySuites Manchester', flag:'🇬🇧', total:{y2022:7048,  y2023:4520,  y2024:3045}},
+  luban:      {label:'Almouj Luban',         flag:'🇴🇲', total:{y2022:5828,  y2023:4198,  y2024:5751,  y2025:4402}},
+  tilal:      {label:'Tilal (Sold)',          flag:'🇴🇲', total:{y2022:1935,  y2023:3102,  y2024:4800,  y2025:4657}},
+  residence:  {label:'Dubai Residence',       flag:'🇦🇪', total:{y2022:13095, y2023:11975, y2024:3491,  y2025:9750}},
+  reehan:     {label:'Dubai Reehan',          flag:'🇦🇪', total:{y2022:8453,  y2023:9272,  y2024:10903, y2025:12737}},
+  manchester: {label:'CitySuites Manchester', flag:'🇬🇧', total:{y2022:7048,  y2023:4520,  y2024:3045,  y2025:1713}},
 };
 
 function renderPrevYears(){
@@ -1274,7 +1274,7 @@ function renderPrevYears(){
       .reduce((s,e)=>s+Number(e.amount),0);
   }
 
-  const YEARS = ['2022','2023','2024','Budget 2026','2026 YTD'];
+  const YEARS = ['2022','2023','2024','2025','Budget 2026','2026 YTD'];
   const COL_GOLD = 'var(--gold)';
   const COL_GREEN = 'var(--green)';
   const COL_MUTED = 'var(--text-muted)';
@@ -1282,7 +1282,7 @@ function renderPrevYears(){
   function headerRow(){
     return `<thead><tr>
       <th style="min-width:160px">Unit / Property</th>
-      ${YEARS.map((y,i)=>`<th style="text-align:right;color:${i===4?COL_GREEN:i===3?'var(--amber)':COL_GOLD}">${y}</th>`).join('')}
+      ${YEARS.map((y,i)=>`<th style="text-align:right;color:${i===5?COL_GREEN:i===4?'var(--amber)':COL_GOLD}">${y}</th>`).join('')}
       <th style="text-align:right;color:var(--text-dim)">Trend</th>
     </tr></thead>`;
   }
@@ -1325,9 +1325,10 @@ function renderPrevYears(){
       <td style="text-align:right;color:var(--gold)">${fmtC(u.y2022)}</td>
       <td style="text-align:right;color:var(--gold)">${fmtC(u.y2023)}</td>
       <td style="text-align:right;color:var(--gold)">${fmtC(u.y2024)}</td>
+      <td style="text-align:right;color:var(--gold)">${fmtC(u.y2025)}</td>
       <td style="text-align:right;color:var(--amber)">${fmtC(unitBudget2026)}</td>
       <td style="text-align:right;color:var(--green)">${fmtC(unitYTD)}</td>
-      <td style="text-align:right">${trendArrow(u.y2024, unitYTD)}</td>
+      <td style="text-align:right">${trendArrow(u.y2025, unitYTD)}</td>
     </tr>`;
   });
 
@@ -1338,9 +1339,10 @@ function renderPrevYears(){
     <td style="text-align:right;color:var(--gold)">${fmtC(r.net.y2022)}</td>
     <td style="text-align:right;color:var(--gold)">${fmtC(r.net.y2023)}</td>
     <td style="text-align:right;color:var(--gold)">${fmtC(r.net.y2024)}</td>
+    <td style="text-align:right;color:var(--gold)">${fmtC(r.net.y2025)}</td>
     <td style="text-align:right;color:var(--amber)">${fmtC(rahhaBudget2026)}</td>
     <td style="text-align:right;color:var(--green)">${fmtC(rahbaYTD)}</td>
-    <td style="text-align:right">${trendArrow(r.net.y2024, rahbaYTD)}</td>
+    <td style="text-align:right">${trendArrow(r.net.y2025, rahbaYTD)}</td>
   </tr>`;
 
   html += `</tbody></table></div>`;
@@ -1361,9 +1363,10 @@ function renderPrevYears(){
       <td style="text-align:right;color:var(--gold)">${fmtC(d.total.y2022)}</td>
       <td style="text-align:right;color:var(--gold)">${fmtC(d.total.y2023)}</td>
       <td style="text-align:right;color:var(--gold)">${fmtC(d.total.y2024)}</td>
+      <td style="text-align:right;color:var(--gold)">${fmtC(d.total.y2025)}</td>
       <td style="text-align:right;color:var(--amber)">${fmtC(propBudget2026)}</td>
       <td style="text-align:right;color:var(--green)">${fmtC(ytd)}</td>
-      <td style="text-align:right">${trendArrow(d.total.y2024, ytd)}</td>
+      <td style="text-align:right">${trendArrow(d.total.y2025, ytd)}</td>
     </tr>`;
   });
 
@@ -1377,10 +1380,12 @@ function renderPrevYears(){
   const TOTALS = {y2022:78515, y2023:78503, y2024:62862};
 
   const budget2026Total = BUDGET.total.reduce((a,b)=>a+b,0);
-  html += `<div class="kpi-grid" style="grid-template-columns:repeat(5,1fr)">
+  const TOTALS2025 = 75502;
+  html += `<div class="kpi-grid" style="grid-template-columns:repeat(6,1fr)">
     <div class="kpi-card"><div class="kpi-label">2022 Total</div><div class="kpi-value"><span class="currency">OMR</span>${fmtN(TOTALS.y2022)}</div></div>
     <div class="kpi-card"><div class="kpi-label">2023 Total</div><div class="kpi-value"><span class="currency">OMR</span>${fmtN(TOTALS.y2023)}</div></div>
     <div class="kpi-card"><div class="kpi-label">2024 Total</div><div class="kpi-value"><span class="currency">OMR</span>${fmtN(TOTALS.y2024)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">2025 Total</div><div class="kpi-value"><span class="currency">OMR</span>${fmtN(TOTALS2025)}</div></div>
     <div class="kpi-card" style="border-color:var(--amber)"><div class="kpi-label">Budget 2026</div><div class="kpi-value" style="color:var(--amber)"><span class="currency" style="color:var(--amber)">OMR</span>${fmtN(budget2026Total)}</div></div>
     <div class="kpi-card" style="border-color:var(--green)"><div class="kpi-label">2026 YTD (Net)</div><div class="kpi-value" style="color:var(--green)"><span class="currency" style="color:var(--green)">OMR</span>${fmtN(grandYTD)}</div></div>
   </div>`;
