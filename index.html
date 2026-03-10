@@ -700,67 +700,66 @@ function renderWaterfall(){
   steps.push({lines:['Actual','YTD'], start:0, end:ACTUAL_YTD, type:'total'});
 
   const allV = steps.flatMap(s=>[s.start,s.end]);
-  const maxV = Math.max(...allV) * 1.2 || 1;
-  const CHART_H = 220; // px for the bar area
+  const maxV = Math.max(...allV) * 1.25 || 1;
+  const CHART_H = 180;
+  const COL_W = 60;   // fixed column width px
+  const GAP   = 28;   // gap between columns
+  const PL    = 44;   // left padding for y-axis
+  const PT    = 24;   // top padding for labels
+  const PB    = 38;   // bottom for x labels
+  const totalW = PL + steps.length*(COL_W+GAP) - GAP + 8;
 
-  function pct(v){ return (v/maxV*100).toFixed(2)+'%'; }
-  function barH(v){ return Math.round(v/maxV*CHART_H); }
+  function bpx(v){ return Math.round(v/maxV*CHART_H); }
   function fmtV(v){ return v>=1000?(v/1000).toFixed(1)+'k':Math.round(v).toString(); }
+  const colors = {total:'#888', up:'#5b8dee', down:'#e09a3a'};
 
-  const colors = {total:'#888888', up:'#5b8dee', down:'#e09a3a'};
+  // SVG-based — scales perfectly, no layout dependency
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 ${totalW} ${PT+CHART_H+PB}" style="display:block;overflow:visible">`;
 
-  let html = `<div style="display:flex;align-items:flex-end;gap:6px;height:${CHART_H+60}px;padding:0 0 40px 40px;position:relative;border-bottom:1px solid rgba(255,255,255,0.1)">`;
-
-  // Y axis labels
-  html += `<div style="position:absolute;left:0;top:0;bottom:40px;width:36px;display:flex;flex-direction:column;justify-content:space-between">`;
-  for(let i=4;i>=0;i--){
+  // Y grid lines & labels
+  for(let i=0;i<=4;i++){
     const v = maxV*i/4;
-    html += `<div style="font-size:9px;color:#4a4a55;text-align:right;padding-right:4px">${v>0?fmtV(v):''}</div>`;
+    const y = PT + CHART_H - bpx(v);
+    svg += `<line x1="${PL}" y1="${y}" x2="${totalW}" y2="${y}" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>`;
+    svg += `<text x="${PL-5}" y="${y+4}" text-anchor="end" font-size="9" fill="#4a4a55" font-family="sans-serif">${v>0?fmtV(v):''}</text>`;
   }
-  html += `</div>`;
 
-  steps.forEach((step, i) => {
+  // X axis
+  svg += `<line x1="${PL}" y1="${PT+CHART_H}" x2="${totalW}" y2="${PT+CHART_H}" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>`;
+
+  steps.forEach((step, i)=>{
+    const x = PL + i*(COL_W+GAP);
     const color = colors[step.type];
-    const bH = barH(step.end - step.start); // height of the visible bar
-    const spacerH = barH(step.start);       // invisible spacer below bar
-    const totalH = CHART_H;
+    const barTop = PT + CHART_H - bpx(step.end);
+    const barBot = PT + CHART_H - bpx(step.start);
+    const barH   = Math.max(barBot - barTop, 3);
 
+    // Bar
+    svg += `<rect x="${x}" y="${barTop}" width="${COL_W}" height="${barH}" fill="${color}" rx="2"/>`;
+
+    // Value label above bar — always on top, clear background
     const lbl = step.type==='total'
       ? 'OMR '+fmtV(step.end)
       : (step.delta>0?'+':'')+Math.round(Math.abs(step.delta)).toLocaleString();
+    const lblY = barTop - 6;
+    // white bg pill for readability
+    svg += `<text x="${x+COL_W/2}" y="${lblY}" text-anchor="middle" font-size="10" font-weight="bold" fill="${color}" font-family="sans-serif">${lbl}</text>`;
 
-    // Connector line to next step
-    const connH = step.type==='down' ? barH(step.start) : barH(step.end);
-    const isLast = i === steps.length-1;
-
-    html += `<div style="flex:1;display:flex;flex-direction:column;align-items:center;height:${totalH}px;position:relative">`;
-    // Value label above bar
-    html += `<div style="position:absolute;top:${totalH - barH(step.end) - bH - 18}px;font-size:10px;font-weight:600;color:${color};white-space:nowrap;text-align:center">${lbl}</div>`;
-    // Spacer (transparent, pushes bar up)
-    html += `<div style="flex:1"></div>`;
-    // The bar itself — sits at correct height using margin-bottom
-    html += `<div style="width:100%;height:${Math.max(bH,3)}px;background:${color};margin-bottom:${spacerH}px;position:relative;border-radius:2px 2px 0 0">`;
-    // Connector dashed line to next bar
-    if(!isLast){
-      const connBottom = spacerH + (step.type==='up'?bH:0);
-      html += `<div style="position:absolute;right:-6px;bottom:${step.type==='up'?'100%':'0'};width:12px;height:1px;border-top:1px dashed rgba(255,255,255,0.25)"></div>`;
+    // Dashed connector to next bar
+    if(i < steps.length-1){
+      const connY = step.type==='down' ? barBot : barTop;
+      const x2    = x + COL_W + GAP;
+      svg += `<line x1="${x+COL_W}" y1="${connY}" x2="${x2}" y2="${connY}" stroke="rgba(255,255,255,0.2)" stroke-width="1" stroke-dasharray="3,3"/>`;
     }
-    html += `</div>`;
-    html += `</div>`;
+
+    // X axis labels
+    step.lines.forEach((line, li)=>{
+      svg += `<text x="${x+COL_W/2}" y="${PT+CHART_H+14+li*12}" text-anchor="middle" font-size="9" fill="#7a7a85" font-family="sans-serif">${line}</text>`;
+    });
   });
 
-  html += `</div>`;
-
-  // X labels row
-  html += `<div style="display:flex;gap:6px;padding:6px 0 0 40px">`;
-  steps.forEach(step=>{
-    html += `<div style="flex:1;text-align:center">`;
-    step.lines.forEach(l=>{ html += `<div style="font-size:9px;color:#7a7a85;line-height:1.4">${l}</div>`; });
-    html += `</div>`;
-  });
-  html += `</div>`;
-
-  wrap.innerHTML = html;
+  svg += `</svg>`;
+  wrap.innerHTML = svg;
 }
 
 // ═══════════════════════════════════
