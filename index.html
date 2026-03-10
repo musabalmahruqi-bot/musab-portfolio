@@ -545,7 +545,7 @@ async function resetAndReload(){if(!confirm("Reset all data to defaults? This wi
 async function jbGet(){
   try{
     const controller = new AbortController();
-    const timeout = setTimeout(()=>controller.abort(), 10000);
+    const timeout = setTimeout(()=>controller.abort(), 7000);
     const r = await fetch(`${JSONBIN_BASE}/${BIN_ID}/latest`,{
       headers:{'X-Master-Key':JSONBIN_KEY},
       signal:controller.signal
@@ -622,7 +622,18 @@ function doLogin(){
   document.getElementById('loginScreen').style.display='none';
   document.getElementById('loadingScreen').style.display='flex';
   document.getElementById('userLabel').textContent=email;
+  // Absolute 12-second fallback — app will load no matter what
+  const forceLoad = setTimeout(()=>{
+    payments = payments.length ? payments : DEFAULT_DATA.payments;
+    expenses = expenses.length ? expenses : DEFAULT_DATA.expenses;
+    tenants  = tenants.length  ? tenants  : DEFAULT_DATA.tenants;
+    document.getElementById('loadingScreen').style.display='none';
+    document.getElementById('appShell').style.display='block';
+    renderPage(currentPage);
+  }, 12000);
+
   loadData().then(()=>{
+    clearTimeout(forceLoad);
     document.getElementById('loadingScreen').style.display='none';
     document.getElementById('appShell').style.display='block';
   });
