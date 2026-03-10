@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- BUILD-20260310-C -->
+<!-- BUILD-20260310-F -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -692,22 +692,23 @@ function renderWaterfall(){
   var wrap = document.getElementById('waterfallWrap');
   if(!wrap) return;
 
-  // Headline figures - identical to renderBudget KPI cards
+  // Headline figures - identical to renderBudget KPIs
   var paid = payments.filter(function(p){ return p.status==='paid'; });
   var totalPaid = paid.reduce(function(s,p){ return s+Number(p.amount); },0);
   var totalExp  = expenses.reduce(function(s,e){ return s+Number(e.amount); },0);
   var ACTUAL_YTD = totalPaid - totalExp;
   var BUDGET_YTD = 12176.3;
 
-  // Helper: sum paid payments for a property in Jan+Feb 2026
-  function paidYTD(prop){
+  // Rent received for a property in Jan+Feb 2026
+  function rentYTD(prop){
     return paid.filter(function(p){
       if(p.property !== prop) return false;
       var d = new Date((p.due||p.paid)+'T00:00:00');
       return d.getFullYear()===2026 && d.getMonth()<=1;
     }).reduce(function(s,p){ return s+Number(p.amount); },0);
   }
-  // Helper: sum expenses for a property in Jan+Feb 2026
+
+  // Expenses for a property in Jan+Feb 2026
   function expYTD(prop){
     return expenses.filter(function(e){
       if(e.property !== prop) return false;
@@ -715,45 +716,46 @@ function renderWaterfall(){
       return d.getFullYear()===2026 && d.getMonth()<=1;
     }).reduce(function(s,e){ return s+Number(e.amount); },0);
   }
-  // Budget Jan+Feb helper
+
+  // Net actual = rent - expenses (same as budget table subtotal rows)
+  function netYTD(prop){ return rentYTD(prop) - expYTD(prop); }
+
+  // Budget Jan+Feb
   function bYTD(arr){ return (arr[0]||0)+(arr[1]||0); }
 
-  // Per-property actuals (same logic as rahba subtotal row in budget table)
   var props = [
-    { label:'Rahba',      b: bYTD(BUDGET.rahba_total), a: paidYTD('rahba') - expYTD('rahba') },
-    { label:'Tilal',      b: bYTD(BUDGET.tilal),       a: paidYTD('tilal') },
-    { label:'Luban',      b: bYTD(BUDGET.luban),       a: paidYTD('luban') },
-    { label:'Residence',  b: bYTD(BUDGET.residence),   a: paidYTD('residence') },
-    { label:'Reehan',     b: bYTD(BUDGET.reehan),      a: paidYTD('reehan') },
-    { label:'Manchester', b: bYTD(BUDGET.manchester),  a: paidYTD('manchester') },
+    { label:'Rahba',      b: bYTD(BUDGET.rahba_total), a: netYTD('rahba') },
+    { label:'Tilal',      b: bYTD(BUDGET.tilal),       a: netYTD('tilal') },
+    { label:'Luban',      b: bYTD(BUDGET.luban),       a: netYTD('luban') },
+    { label:'Residence',  b: bYTD(BUDGET.residence),   a: netYTD('residence') },
+    { label:'Reehan',     b: bYTD(BUDGET.reehan),      a: netYTD('reehan') },
+    { label:'Manchester', b: bYTD(BUDGET.manchester),  a: netYTD('manchester') },
   ].filter(function(p){ return p.b!==0 || p.a!==0; });
 
-  // Build steps
+  // Build steps: Budget YTD → per-property net delta → Actual YTD
   var steps = [{ label:'Budget\nYTD', val:BUDGET_YTD, base:0, isTot:true, delta:0 }];
   var run = BUDGET_YTD;
+
   props.forEach(function(p){
     var d = p.a - p.b;
     var base = d < 0 ? run+d : run;
     steps.push({ label:p.label, val:Math.abs(d)||1, base:base, delta:d, isTot:false });
     run += d;
   });
-  // Non-rahba expenses (rahba exp already deducted above)
-  var otherExp = totalExp - expYTD('rahba');
-  if(otherExp > 0.5){
-    steps.push({ label:'Other\nExp', val:otherExp, base:run-otherExp, delta:-otherExp, isTot:false });
-    run -= otherExp;
-  }
+
   steps.push({ label:'Actual\nYTD', val:ACTUAL_YTD, base:0, isTot:true, delta:0 });
 
-  // Draw
+  // Draw SVG
   var CW=58, GAP=26, PL=50, PT=32, PB=50, CH=175;
   var W = PL + steps.length*(CW+GAP) - GAP + 12;
   var H = PT + CH + PB;
   var maxV = Math.max(BUDGET_YTD, ACTUAL_YTD) * 1.3;
+
   function py(v){ return PT + CH - Math.round(Math.max(v,0)/maxV*CH); }
   function fmtK(v){ var a=Math.abs(v); return a>=1000?(a/1000).toFixed(1)+'k':Math.round(a)+''; }
 
   var out = '<svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 '+W+' '+H+'" style="display:block">';
+
   for(var g=1;g<=4;g++){
     var gv=maxV*g/4, gy=py(gv);
     out+='<line x1="'+PL+'" y1="'+gy+'" x2="'+(W-4)+'" y2="'+gy+'" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>';
@@ -769,22 +771,26 @@ function renderWaterfall(){
       yT=py(step.val); yB=py(0); bH=Math.max(yB-yT,4);
     } else {
       yB=py(step.base);
-      bH=Math.max(Math.round(step.val/maxV*CH),30);
+      bH=Math.max(Math.round(step.val/maxV*CH), 30);
       yT=yB-bH;
     }
     out+='<rect x="'+x+'" y="'+yT+'" width="'+CW+'" height="'+bH+'" fill="'+col+'" rx="2" opacity="0.9"/>';
-    var lbl=step.isTot?'OMR '+fmtK(step.val):(step.delta>=0?'+':'-')+fmtK(step.delta);
-    var lw=lbl.length*6.5+12;
+
+    var lbl = step.isTot ? 'OMR '+fmtK(step.val) : (step.delta>=0?'+':'-')+fmtK(step.delta);
+    var lw = lbl.length*6.5+12;
     out+='<rect x="'+(cx-lw/2)+'" y="'+(yT-21)+'" width="'+lw+'" height="16" rx="3" fill="#0d0d0f"/>';
     out+='<text x="'+cx+'" y="'+(yT-9)+'" text-anchor="middle" font-size="10" font-weight="bold" fill="'+col+'" font-family="sans-serif">'+lbl+'</text>';
+
     if(i<steps.length-1){
-      var connY=step.isTot?py(step.val):(step.delta>=0?yT:yB);
+      var connY = step.isTot ? py(step.val) : (step.delta>=0 ? yT : yB);
       out+='<line x1="'+(x+CW)+'" y1="'+connY+'" x2="'+(x+CW+GAP)+'" y2="'+connY+'" stroke="rgba(255,255,255,0.2)" stroke-width="1" stroke-dasharray="4,3"/>';
     }
+
     step.label.split('\n').forEach(function(ln,li){
       out+='<text x="'+cx+'" y="'+(py(0)+15+li*13)+'" text-anchor="middle" font-size="9" fill="#7a7a85" font-family="sans-serif">'+ln+'</text>';
     });
   });
+
   out+='</svg>';
   wrap.innerHTML=out;
 }
