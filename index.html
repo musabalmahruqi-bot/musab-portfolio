@@ -275,9 +275,7 @@ tbody tr:hover{background:var(--surface2);}
             <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text-muted)"><div style="width:12px;height:12px;border-radius:2px;background:#e09a3a"></div>Below budget</div>
             <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text-muted)"><div style="width:12px;height:12px;border-radius:2px;background:#888"></div>Total</div>
           </div>
-          <div id="waterfallWrap" style="width:100%;height:300px;position:relative">
-            <canvas id="waterfallChart" width="800" height="300" style="display:block"></canvas>
-          </div>
+          <div id="waterfallWrap" style="width:100%;min-height:300px"></div>
         </div>
         <div class="section-header"><div class="section-title">Contract Renewals <span>all properties</span></div></div>
         <div class="table-card"><table><thead><tr><th>Property</th><th>Unit</th><th>Tenant</th><th>Monthly Rent</th><th>Expiry</th><th>Days Left</th><th>Status</th></tr></thead><tbody id="expiryTable"></tbody></table></div>
@@ -637,26 +635,17 @@ function renderPage(id){
 //  WATERFALL CHART
 // ═══════════════════════════════════
 function renderWaterfall(){
-  const canvas = document.getElementById('waterfallChart');
-  if(!canvas) return;
   const wrap = document.getElementById('waterfallWrap');
-  const W = (wrap ? wrap.clientWidth : 800) || 800;
-  const H = 300;
-  canvas.width  = W;
-  canvas.height = H;
-  canvas.style.width  = W+'px';
-  canvas.style.height = H+'px';
-  const ctx = canvas.getContext('2d');
+  if(!wrap) return;
 
-  // Actuals per property
+  const curMonth = new Date().getMonth();
   const paid = payments.filter(p=>p.status==='paid');
+
   const propActuals = PROPERTIES.map(p=>({
     id:p.id, name:p.name,
     actual:paid.filter(x=>x.property===p.id).reduce((s,x)=>s+Number(x.amount),0)
   }));
 
-  // Budget YTD per property from EXCEL_ROWS
-  const curMonth = new Date().getMonth();
   const propBudgets = PROPERTIES.map(p=>{
     const rows = EXCEL_ROWS.filter(r=>r.prop===p.id && r.cat!=='subtotal' && r.cat!=='expense' && r.cat!=='cumulative' && r.cat!=='total');
     const b = rows.reduce((s,r)=>s+r.budget.slice(0,curMonth+1).reduce((a,v)=>a+(v||0),0),0);
@@ -666,7 +655,7 @@ function renderWaterfall(){
   const BUDGET_YTD = propBudgets.reduce((s,p)=>s+p.budget,0);
   const ACTUAL_YTD = propActuals.reduce((s,p)=>s+p.actual,0);
 
-  // Waterfall steps
+  // Build steps
   const steps = [];
   steps.push({lines:['Budget','YTD'], start:0, end:BUDGET_YTD, type:'total'});
   let running = BUDGET_YTD;
@@ -677,72 +666,74 @@ function renderWaterfall(){
     if(delta===0 && b===0 && a===0) return;
     const s = delta>=0 ? running : running+delta;
     const e = delta>=0 ? running+delta : running;
-    // Shorten long names
-    const short = p.name.replace('Almouj ','').replace('Residence Flat','Residence').replace('Reehan Flat','Reehan').replace('CitySuites','Manchester').replace('Rahba Hill','Rahba').replace(' (Sold)','');
+    const short = p.name.replace(' (Sold)','').replace('Almouj ','').replace(' Flat','').replace('CitySuites','Manchester').replace('Rahba Hill','Rahba');
     steps.push({lines:[short], start:s, end:e, delta:delta, type:delta>=0?'up':'down'});
     running += delta;
   });
   steps.push({lines:['Actual','YTD'], start:0, end:ACTUAL_YTD, type:'total'});
 
-  // Layout
-  const PL=55,PR=16,PT=28,PB=52;
-  const cW=W-PL-PR, cH=H-PT-PB;
-  const N=steps.length, GAP=8;
-  const colW=(cW-GAP*(N-1))/N;
-  const allV=steps.flatMap(s=>[s.start,s.end]);
-  const maxV=Math.max(...allV)*1.2||1;
-  function toY(v){return PT+cH-((v/maxV)*cH);}
+  const allV = steps.flatMap(s=>[s.start,s.end]);
+  const maxV = Math.max(...allV) * 1.2 || 1;
+  const CHART_H = 220; // px for the bar area
 
-  ctx.clearRect(0,0,W,H);
+  function pct(v){ return (v/maxV*100).toFixed(2)+'%'; }
+  function barH(v){ return Math.round(v/maxV*CHART_H); }
+  function fmtV(v){ return v>=1000?(v/1000).toFixed(1)+'k':Math.round(v).toString(); }
 
-  // Grid
-  for(let i=0;i<=4;i++){
-    const v=maxV*i/4;
-    const y=toY(v);
-    ctx.strokeStyle='rgba(255,255,255,0.06)';
-    ctx.lineWidth=1;
-    ctx.beginPath();ctx.moveTo(PL,y);ctx.lineTo(W-PR,y);ctx.stroke();
-    ctx.fillStyle='#4a4a55';ctx.font='10px sans-serif';ctx.textAlign='right';
-    ctx.fillText(v>=1000?(v/1000).toFixed(0)+'k':'0', PL-5, y+4);
+  const colors = {total:'#888888', up:'#5b8dee', down:'#e09a3a'};
+
+  let html = `<div style="display:flex;align-items:flex-end;gap:6px;height:${CHART_H+60}px;padding:0 0 40px 40px;position:relative;border-bottom:1px solid rgba(255,255,255,0.1)">`;
+
+  // Y axis labels
+  html += `<div style="position:absolute;left:0;top:0;bottom:40px;width:36px;display:flex;flex-direction:column;justify-content:space-between">`;
+  for(let i=4;i>=0;i--){
+    const v = maxV*i/4;
+    html += `<div style="font-size:9px;color:#4a4a55;text-align:right;padding-right:4px">${v>0?fmtV(v):''}</div>`;
   }
+  html += `</div>`;
 
-  // X axis
-  ctx.strokeStyle='rgba(255,255,255,0.15)';
-  ctx.lineWidth=1;
-  ctx.beginPath();ctx.moveTo(PL,PT+cH);ctx.lineTo(W-PR,PT+cH);ctx.stroke();
+  steps.forEach((step, i) => {
+    const color = colors[step.type];
+    const bH = barH(step.end - step.start); // height of the visible bar
+    const spacerH = barH(step.start);       // invisible spacer below bar
+    const totalH = CHART_H;
 
-  // Bars
-  steps.forEach((step,i)=>{
-    const x=PL+i*(colW+GAP);
-    const y1=toY(step.end);
-    const y2=toY(step.start);
-    const bH=Math.max(Math.abs(y2-y1),3);
-    const color=step.type==='total'?'#888':step.type==='up'?'#5b8dee':'#e09a3a';
+    const lbl = step.type==='total'
+      ? 'OMR '+fmtV(step.end)
+      : (step.delta>0?'+':'')+Math.round(Math.abs(step.delta)).toLocaleString();
 
-    // Bar (simple rect, no roundRect for compatibility)
-    ctx.fillStyle=color;
-    ctx.fillRect(x, y1, colW, bH);
+    // Connector line to next step
+    const connH = step.type==='down' ? barH(step.start) : barH(step.end);
+    const isLast = i === steps.length-1;
 
-    // Value label
-    const lbl=step.type==='total'
-      ?'OMR '+(step.end/1000).toFixed(1)+'k'
-      :(step.delta>0?'+':'')+Math.abs(Math.round(step.delta)).toLocaleString();
-    ctx.fillStyle=color;ctx.font='bold 10px sans-serif';ctx.textAlign='center';
-    ctx.fillText(lbl, x+colW/2, y1-5);
-
-    // Connector to next bar
-    if(i<steps.length-1){
-      const connY=step.type==='down'?toY(step.start):toY(step.end);
-      ctx.strokeStyle='rgba(255,255,255,0.2)';
-      ctx.lineWidth=1;ctx.setLineDash([3,3]);
-      ctx.beginPath();ctx.moveTo(x+colW,connY);ctx.lineTo(x+colW+GAP,connY);ctx.stroke();
-      ctx.setLineDash([]);
+    html += `<div style="flex:1;display:flex;flex-direction:column;align-items:center;height:${totalH}px;position:relative">`;
+    // Value label above bar
+    html += `<div style="position:absolute;top:${totalH - barH(step.end) - bH - 18}px;font-size:10px;font-weight:600;color:${color};white-space:nowrap;text-align:center">${lbl}</div>`;
+    // Spacer (transparent, pushes bar up)
+    html += `<div style="flex:1"></div>`;
+    // The bar itself — sits at correct height using margin-bottom
+    html += `<div style="width:100%;height:${Math.max(bH,3)}px;background:${color};margin-bottom:${spacerH}px;position:relative;border-radius:2px 2px 0 0">`;
+    // Connector dashed line to next bar
+    if(!isLast){
+      const connBottom = spacerH + (step.type==='up'?bH:0);
+      html += `<div style="position:absolute;right:-6px;bottom:${step.type==='up'?'100%':'0'};width:12px;height:1px;border-top:1px dashed rgba(255,255,255,0.25)"></div>`;
     }
-
-    // X label
-    ctx.fillStyle='#7a7a85';ctx.font='9px sans-serif';ctx.textAlign='center';
-    step.lines.forEach((line,li)=>ctx.fillText(line, x+colW/2, PT+cH+14+li*12));
+    html += `</div>`;
+    html += `</div>`;
   });
+
+  html += `</div>`;
+
+  // X labels row
+  html += `<div style="display:flex;gap:6px;padding:6px 0 0 40px">`;
+  steps.forEach(step=>{
+    html += `<div style="flex:1;text-align:center">`;
+    step.lines.forEach(l=>{ html += `<div style="font-size:9px;color:#7a7a85;line-height:1.4">${l}</div>`; });
+    html += `</div>`;
+  });
+  html += `</div>`;
+
+  wrap.innerHTML = html;
 }
 
 // ═══════════════════════════════════
