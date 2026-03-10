@@ -689,92 +689,95 @@ function renderPage(id){
 //  WATERFALL CHART
 // ═══════════════════════════════════
 function renderWaterfall(){
-  const wrap = document.getElementById('waterfallWrap');
+  var wrap = document.getElementById('waterfallWrap');
   if(!wrap) return;
 
-  const BUDGET_YTD = 12176.3;
-  const paid = payments.filter(p=>p.status==='paid');
-  const totalPaid = paid.reduce((s,p)=>s+Number(p.amount),0);
-  const totalExp  = expenses.reduce((s,e)=>s+Number(e.amount),0);
-  const ACTUAL_YTD = totalPaid - totalExp;
+  var BUDGET_YTD = 12176.3;
+  var paid = payments.filter(function(p){ return p.status==='paid'; });
+  var totalPaid = paid.reduce(function(s,p){ return s+Number(p.amount); }, 0);
+  var totalExp  = expenses.reduce(function(s,e){ return s+Number(e.amount); }, 0);
+  var ACTUAL_YTD = totalPaid - totalExp;
 
-  const bSlice = (arr) => arr.slice(0,2).reduce((s,v)=>s+(v||0),0);
-  const aSum   = (prop) => paid.filter(p=>p.property===prop).reduce((s,p)=>s+Number(p.amount),0);
+  function bSlice(arr){ return arr.slice(0,2).reduce(function(s,v){ return s+(v||0); },0); }
+  function aSum(prop){ return paid.filter(function(p){ return p.property===prop; }).reduce(function(s,p){ return s+Number(p.amount); },0); }
 
-  // Include ALL properties with non-zero budget OR non-zero actual (keep even if delta=0)
-  const propData = [
+  var props = [
     {label:'Rahba',      b:bSlice(BUDGET.rahba_total), a:aSum('rahba')},
     {label:'Tilal',      b:bSlice(BUDGET.tilal),       a:aSum('tilal')},
     {label:'Luban',      b:bSlice(BUDGET.luban),       a:aSum('luban')},
-    {label:'Residence',  b:bSlice(BUDGET.residence),   a:aSum('residence')},
-    {label:'Reehan',     b:bSlice(BUDGET.reehan),      a:aSum('reehan')},
     {label:'Manchester', b:bSlice(BUDGET.manchester),  a:aSum('manchester')},
-  ].filter(p=>p.b!==0||p.a!==0);
+  ].filter(function(p){ return p.b!==0||p.a!==0; });
 
-  const steps = [{lines:['Budget','YTD'], val:BUDGET_YTD, base:0, type:'total'}];
-  let run = BUDGET_YTD;
-  propData.forEach(p=>{
-    const d = p.a - p.b;
-    // Show all properties with budget or actual, even if delta=0
-    const base = d<0 ? run+d : run;
-    steps.push({lines:[p.label], val:Math.max(Math.abs(d),1), base:base, delta:d, type:d>0?'up':d<0?'down':'zero'});
+  var steps = [];
+  steps.push({label:'Budget\nYTD', val:BUDGET_YTD, base:0, isTot:true});
+  var run = BUDGET_YTD;
+  props.forEach(function(p){
+    var d = p.a - p.b;
+    var base = d < 0 ? run+d : run;
+    steps.push({label:p.label, val:Math.abs(d)||1, base:base, delta:d, isTot:false});
     run += d;
   });
-  if(totalExp>0.5){
-    steps.push({lines:['Expenses'], val:totalExp, base:run-totalExp, delta:-totalExp, type:'down'});
+  if(totalExp > 0){
+    steps.push({label:'Expenses', val:totalExp, base:run-totalExp, delta:-totalExp, isTot:false});
     run -= totalExp;
   }
-  steps.push({lines:['Actual','YTD'], val:ACTUAL_YTD, base:0, type:'total'});
+  steps.push({label:'Actual\nYTD', val:ACTUAL_YTD, base:0, isTot:true});
 
-  // Min column height so small values still show as a proper bar
-  const MIN_BAR_H = 28;
-  const CW=52, GAP=30, PL=48, PT=30, PB=44, CH=180;
-  const W = PL + steps.length*(CW+GAP) - GAP + 12;
-  const H = PT + CH + PB;
-  const maxV = Math.max(BUDGET_YTD, ACTUAL_YTD) * 1.28;
+  var CW=60, GAP=28, PL=50, PT=32, PB=48, CH=170;
+  var W = PL + steps.length*(CW+GAP) - GAP + 12;
+  var H = PT + CH + PB;
+  var maxV = Math.max(BUDGET_YTD, ACTUAL_YTD) * 1.3;
 
-  const py = v => PT + CH - Math.round(Math.max(v,0)/maxV*CH);
-  const fmtK = v => v>=1000?(v/1000).toFixed(1)+'k':Math.round(v)+'';
-  const C = {total:'#888', up:'#5b8dee', down:'#e09a3a', zero:'#555'};
+  function py(v){ return PT + CH - Math.round(Math.max(v,0)/maxV*CH); }
+  function fmtK(v){ return v>=1000?(v/1000).toFixed(1)+'k':Math.round(Math.abs(v))+''; }
 
-  let s = `<svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 ${W} ${H}" style="display:block;overflow:visible">`;
+  var out = '<svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 '+W+' '+H+'" style="display:block">';
 
-  for(let i=1;i<=4;i++){
-    const v=maxV*i/4, y=py(v);
-    s+=`<line x1="${PL}" y1="${y}" x2="${W-4}" y2="${y}" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>`;
-    s+=`<text x="${PL-5}" y="${y+4}" text-anchor="end" font-size="9" fill="#4a4a55" font-family="sans-serif">${fmtK(v)}</text>`;
+  // grid
+  for(var g=1;g<=4;g++){
+    var gv=maxV*g/4, gy=py(gv);
+    out+='<line x1="'+PL+'" y1="'+gy+'" x2="'+(W-4)+'" y2="'+gy+'" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>';
+    out+='<text x="'+(PL-5)+'" y="'+(gy+4)+'" text-anchor="end" font-size="9" fill="#4a4a55" font-family="sans-serif">'+fmtK(gv)+'</text>';
   }
-  s+=`<line x1="${PL}" y1="${py(0)}" x2="${W-4}" y2="${py(0)}" stroke="rgba(255,255,255,0.18)" stroke-width="1"/>`;
+  out+='<line x1="'+PL+'" y1="'+py(0)+'" x2="'+(W-4)+'" y2="'+py(0)+'" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>';
 
-  steps.forEach((step,i)=>{
-    const x=PL+i*(CW+GAP), cx=x+CW/2, col=C[step.type];
-    let yT = step.type==='total' ? py(step.val) : py(step.base+step.val);
-    const yB = step.type==='total' ? py(0) : py(step.base);
-    // Enforce minimum bar height
-    let bH = Math.max(yB-yT, MIN_BAR_H);
-    if(step.type!=='total') yT = yB - bH;
+  steps.forEach(function(step, i){
+    var x = PL + i*(CW+GAP);
+    var cx = x + CW/2;
+    var col = step.isTot ? '#888' : (step.delta>=0 ? '#5b8dee' : '#e09a3a');
+    var yT, yB, bH;
 
-    s+=`<rect x="${x}" y="${yT}" width="${CW}" height="${bH}" fill="${col}" rx="2" opacity="0.88"/>`;
-
-    const lbl = step.type==='total'
-      ? 'OMR '+fmtK(step.val)
-      : step.delta===0 ? '=' : (step.delta>0?'+':'')+fmtK(step.delta);
-    const lw = lbl.length*6.2+10;
-    s+=`<rect x="${cx-lw/2}" y="${yT-20}" width="${lw}" height="15" rx="3" fill="#0e0e10"/>`;
-    s+=`<text x="${cx}" y="${yT-9}" text-anchor="middle" font-size="10" font-weight="600" fill="${col}" font-family="sans-serif">${lbl}</text>`;
-
-    if(i<steps.length-1){
-      const cy2 = step.type==='total' ? py(step.val) : step.delta>=0 ? yT : yB;
-      s+=`<line x1="${x+CW}" y1="${cy2}" x2="${x+CW+GAP}" y2="${cy2}" stroke="rgba(255,255,255,0.25)" stroke-width="1" stroke-dasharray="4,3"/>`;
+    if(step.isTot){
+      yT = py(step.val);
+      yB = py(0);
+      bH = Math.max(yB - yT, 4);
+    } else {
+      yT = py(step.base + step.val);
+      yB = py(step.base);
+      bH = Math.max(yB - yT, 28); // min height 28px so small bars are visible
+      yT = yB - bH;
     }
 
-    step.lines.forEach((ln,li)=>{
-      s+=`<text x="${cx}" y="${py(0)+14+li*12}" text-anchor="middle" font-size="9" fill="#7a7a85" font-family="sans-serif">${ln}</text>`;
+    out+='<rect x="'+x+'" y="'+yT+'" width="'+CW+'" height="'+bH+'" fill="'+col+'" rx="2" opacity="0.9"/>';
+
+    var lbl = step.isTot ? 'OMR '+fmtK(step.val) : (step.delta>=0?'+':'')+fmtK(step.delta);
+    var lw = lbl.length*6+12;
+    out+='<rect x="'+(cx-lw/2)+'" y="'+(yT-20)+'" width="'+lw+'" height="15" rx="3" fill="#0e0e10"/>';
+    out+='<text x="'+cx+'" y="'+(yT-9)+'" text-anchor="middle" font-size="10" font-weight="bold" fill="'+col+'" font-family="sans-serif">'+lbl+'</text>';
+
+    if(i < steps.length-1){
+      var connY = step.isTot ? py(step.val) : (step.delta>=0 ? yT : yB);
+      out+='<line x1="'+(x+CW)+'" y1="'+connY+'" x2="'+(x+CW+GAP)+'" y2="'+connY+'" stroke="rgba(255,255,255,0.2)" stroke-width="1" stroke-dasharray="4,3"/>';
+    }
+
+    var xlbls = step.label.split('\n');
+    xlbls.forEach(function(ln, li){
+      out+='<text x="'+cx+'" y="'+(py(0)+14+li*12)+'" text-anchor="middle" font-size="9" fill="#7a7a85" font-family="sans-serif">'+ln+'</text>';
     });
   });
 
-  s+='</svg>';
-  wrap.innerHTML = s;
+  out += '</svg>';
+  wrap.innerHTML = out;
 }
 
 // ═══════════════════════════════════
