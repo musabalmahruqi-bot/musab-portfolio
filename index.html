@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- BUILD-20260310-N -->
+<!-- BUILD-20260310-O -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -819,7 +819,7 @@ function renderDashboard(){
 
   // Build expected income rows from EXCEL_ROWS for current month
   const incomeRows = EXCEL_ROWS
-    .filter(r=>r.cat!=='cumulative' && r.budget[mM] && r.budget[mM]>0)
+    .filter(r=>['villa','property','expense'].includes(r.cat) && r.budget[mM] && r.budget[mM]>0)
     .map(r=>{
       const budgeted = r.budget[mM];
       // Find matching actual payment this month
@@ -871,10 +871,10 @@ function renderDashboard(){
     });
   }
 
-  const net = totBudget + totActual;
+  const mthBudgetNet = BUDGET.total[mM];
   rows+=`<tr style="border-top:1px solid rgba(255,255,255,0.12)">`
-    +`<td style="padding:5px 8px 2px 0;font-weight:600;color:var(--text)">${monthNames[mM]} Total (budgeted)</td>`
-    +`<td style="padding:5px 8px 2px 0;text-align:right;font-weight:600;color:var(--text)">OMR ${fmtN(totBudget)}</td>`
+    +`<td style="padding:5px 8px 2px 0;font-weight:600;color:var(--text)">${monthNames[mM]} Budget (net)</td>`
+    +`<td style="padding:5px 8px 2px 0;text-align:right;font-weight:600;color:var(--gold)">OMR ${fmtN(mthBudgetNet)}</td>`
     +`<td></td></tr>`;
   rows+='</tbody>';
 
