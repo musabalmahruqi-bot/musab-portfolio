@@ -260,9 +260,9 @@ tbody tr:hover{background:var(--surface2);}
       <div class="page active" id="page-dashboard">
         <div id="expiryNotifications"></div>
         <div class="kpi-grid">
-          <div class="kpi-card"><div class="kpi-label">2026 Annual Budget</div><div class="kpi-value"><span class="currency">OMR</span>91,872</div><div class="kpi-sub">Full year target</div></div>
-          <div class="kpi-card"><div class="kpi-label">Actual Collected YTD</div><div class="kpi-value"><span class="currency">OMR</span><span id="kpi-ytd">—</span></div><div class="kpi-sub">Paid receipts</div></div>
-          <div class="kpi-card"><div class="kpi-label">Total Expenses YTD</div><div class="kpi-value"><span class="currency">OMR</span><span id="kpi-exp">—</span></div><div class="kpi-sub">All properties</div></div>
+          <div class="kpi-card"><div class="kpi-label">2026 Annual Budget (Net)</div><div class="kpi-value"><span class="currency">OMR</span>91,872</div><div class="kpi-sub">Net of budgeted expenses</div></div>
+          <div class="kpi-card"><div class="kpi-label">Net Income YTD</div><div class="kpi-value"><span class="currency">OMR</span><span id="kpi-ytd">—</span></div><div class="kpi-sub">Income minus expenses</div></div>
+          <div class="kpi-card"><div class="kpi-label">Expenses YTD</div><div class="kpi-value"><span class="currency">OMR</span><span id="kpi-exp">—</span></div><div class="kpi-sub">Budget: <span id="kpi-exp-budget">—</span></div></div>
 
         </div>
         <div class="chart-grid">
@@ -859,8 +859,15 @@ function renderDashboard(){
   const paid=payments.filter(p=>p.status==='paid');
   const totalIn=paid.reduce((s,p)=>s+Number(p.amount),0);
   const totalEx=expenses.reduce((s,e)=>s+Number(e.amount),0);
-  document.getElementById('kpi-ytd').textContent=fmtN(totalIn);
+  const netYTD=totalIn-totalEx;
+  const mNow0=new Date();
+  const budgetedExpYTD=EXCEL_ROWS
+    .filter(r=>r.cat==='expense')
+    .reduce((s,r)=>s+r.budget.slice(0,mNow0.getMonth()+1).reduce((a,b)=>a+Math.min(b,0),0)*-1,0);
+  document.getElementById('kpi-ytd').textContent=fmtN(netYTD);
   document.getElementById('kpi-exp').textContent=fmtN(totalEx);
+  const expBudgetEl=document.getElementById('kpi-exp-budget');
+  if(expBudgetEl) expBudgetEl.textContent='OMR '+fmtN(budgetedExpYTD);
 
   // ── This Month table: use EXCEL_ROWS budget as expected, cross-ref actual payments ──
   const mNow=new Date(), mM=mNow.getMonth(), mY=mNow.getFullYear();
