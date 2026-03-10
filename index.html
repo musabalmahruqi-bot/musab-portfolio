@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- BUILD-20260310-I -->
+<!-- BUILD-20260310-K -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -258,7 +258,10 @@ tbody tr:hover{background:var(--surface2);}
           <div class="kpi-card"><div class="kpi-label">2026 Annual Budget</div><div class="kpi-value"><span class="currency">OMR</span>91,872</div><div class="kpi-sub">Full year target</div></div>
           <div class="kpi-card"><div class="kpi-label">Actual Collected YTD</div><div class="kpi-value"><span class="currency">OMR</span><span id="kpi-ytd">—</span></div><div class="kpi-sub">Paid receipts</div></div>
           <div class="kpi-card"><div class="kpi-label">Total Expenses YTD</div><div class="kpi-value"><span class="currency">OMR</span><span id="kpi-exp">—</span></div><div class="kpi-sub">All properties</div></div>
-          <div class="kpi-card"><div class="kpi-label">YTD Net Income</div><div class="kpi-value"><span class="currency">OMR</span><span id="kpi-month-net">—</span></div><div class="kpi-sub" id="kpi-month-net-sub">Rent received − expenses</div></div>
+          <div class="kpi-card" style="grid-column:span 2;padding:14px 18px">
+            <div class="kpi-label" style="margin-bottom:8px">March 2026 — Expected Payments &amp; Expenses</div>
+            <div id="kpi-month-table" style="font-size:11px"></div>
+          </div>
         </div>
         <div class="chart-grid">
           <div class="chart-card"><div class="chart-label">Income by Property — YTD</div><div class="bar-chart" id="incomeChart"></div></div>
@@ -682,6 +685,7 @@ function renderPage(id){
   if(id==='reports')    renderReports();
   if(id==='budget2026'){ renderBudget(); }
   if(id==='tenants')    renderTenants();
+  if(id==='renewals')   renderExpiryTracker();
 }
 
 
@@ -805,33 +809,30 @@ function renderDashboard(){
   document.getElementById('kpi-ytd').textContent=fmtN(totalIn);
   document.getElementById('kpi-exp').textContent=fmtN(totalEx);
 
-  // YTD Net Income = payments due this month (paid+pending) minus expenses this month
-  const now = new Date();
-  const curM = now.getMonth();
-  const curY = now.getFullYear();
-  const monthPaid = payments.filter(p=>{
-    const d = new Date((p.due||p.paid)+'T00:00:00');
-    return d.getMonth()===curM && d.getFullYear()===curY && p.status==='paid';
-  }).reduce((s,p)=>s+Number(p.amount),0);
-  const monthPending = payments.filter(p=>{
-    const d = new Date((p.due||p.paid||p.dueDate)+'T00:00:00');
-    return d.getMonth()===curM && d.getFullYear()===curY && p.status!=='paid';
-  }).reduce((s,p)=>s+Number(p.amount),0);
-  const monthExp = expenses.filter(e=>{
-    const d = new Date(e.date+'T00:00:00');
-    return d.getMonth()===curM && d.getFullYear()===curY;
-  }).reduce((s,e)=>s+Number(e.amount),0);
-  // Use YTD net to match Budget vs Actual page exactly
-  const ytdNet = totalIn - totalEx;
-  document.getElementById('kpi-month-net').textContent = fmtN(ytdNet);
-  const ytdVar = ytdNet - 12176.3;
-  document.getElementById('kpi-month-net-sub').textContent = (ytdVar>=0?'+':'')+fmtN(ytdVar)+' vs YTD budget';
+  // March table
+  const mNow=new Date(), mM=mNow.getMonth(), mY=mNow.getFullYear();
+  const mPay=payments.filter(p=>{ const d=new Date((p.due||p.paid)+'T00:00:00'); return d.getMonth()===mM&&d.getFullYear()===mY; });
+  const mExp=expenses.filter(e=>{ const d=new Date(e.date+'T00:00:00'); return d.getMonth()===mM&&d.getFullYear()===mY; });
+  const mTotPay=mPay.reduce((s,p)=>s+Number(p.amount),0);
+  const mTotExp=mExp.reduce((s,e)=>s+Number(e.amount),0);
+  const mNet=mTotPay-mTotExp;
+  const PLBL={rahba:'Rahba Hill',tilal:'Tilal',luban:'Luban',residence:'Residence',reehan:'Reehan',manchester:'Manchester'};
+  let rows='';
+  mPay.forEach(p=>{
+    const badge=p.status==='paid'?'<span style="color:var(--green);font-size:9px">✓ paid</span>':'<span style="color:var(--amber);font-size:9px">pending</span>';
+    rows+=`<tr><td style="padding:2px 6px 2px 0;color:var(--text-muted)">${PLBL[p.property]||p.property}</td><td style="padding:2px 6px 2px 0;color:var(--text-muted)">${p.unit||''}</td><td style="padding:2px 6px 2px 0">${badge}</td><td style="padding:2px 0;text-align:right;color:var(--text)">OMR ${fmtN(Number(p.amount))}</td></tr>`;
+  });
+  mExp.forEach(e=>{
+    rows+=`<tr><td style="padding:2px 6px 2px 0;color:var(--amber)">${PLBL[e.property]||e.property}</td><td style="padding:2px 6px 2px 0;color:var(--text-muted)">${e.description||e.type||'Expense'}</td><td></td><td style="padding:2px 0;text-align:right;color:var(--amber)">− OMR ${fmtN(Number(e.amount))}</td></tr>`;
+  });
+  rows+=`<tr style="border-top:1px solid rgba(255,255,255,0.1)"><td colspan="3" style="padding:4px 0 0;font-weight:600;color:var(--text)">Net</td><td style="padding:4px 0 0;text-align:right;font-weight:600;color:${mNet>=0?'var(--green)':'var(--amber)'}">OMR ${fmtN(mNet)}</td></tr>`;
+  const tbl=document.getElementById('kpi-month-table');
+  if(tbl) tbl.innerHTML=mPay.length+mExp.length>0?`<table style="width:100%;border-collapse:collapse">${rows}</table>`:'<span style="color:var(--text-muted)">No entries this month</span>';
+
   const byProp=PROPERTIES.map(p=>({name:p.name,val:paid.filter(x=>x.property===p.id).reduce((s,x)=>s+Number(x.amount),0)})).filter(x=>x.val>0).sort((a,b)=>b.val-a.val);
   const mx=Math.max(...byProp.map(x=>x.val),1);
-  document.getElementById('incomeChart').innerHTML=byProp.length?byProp.map(r=>`<div class="bar-row"><div class="bar-name">${r.name}</div><div class="bar-track"><div class="bar-fill" style="width:${(r.val/mx*100).toFixed(1)}%"></div></div><div class="bar-val">OMR ${fmtN(r.val)}</div></div>`).join(''):'<div class="empty">No payments yet</div>';
+  document.getElementById('incomeChart').innerHTML=byProp.length?byProp.map(r=>`<div class="bar-row"><div class="bar-name">${r.name}</div><div class="bar-track"><div class="bar-fill" style="width:${(r.val/mx*100).toFixed(1)}%"></div></div><div class="bar-val">OMR ${fmtN(r.val)}</div></div>`).join(''):'<div class="empty">No paid payments yet</div>';
   renderExpiryTracker();
-  const recent=[...payments].sort((a,b)=>new Date(b.due)-new Date(a.due)).slice(0,6);
-  document.getElementById('recentPayments').innerHTML=recent.length?recent.map(p=>`<tr><td>${getPropName(p.property)}</td><td>${p.tenant||'—'}</td><td class="text-gold">OMR ${fmtN(p.amount)}</td><td>${fmtDate(p.due)}</td><td>${statusBadge(p.status)}</td></tr>`).join(''):'<tr><td colspan="5" class="empty">No payments yet</td></tr>';
 }
 
 function renderExpiryTracker(){
@@ -839,16 +840,31 @@ function renderExpiryTracker(){
   const WARN=60;
   const sorted=[...tenants].filter(t=>t.end).map(t=>{const exp=new Date(t.end+'T00:00:00');return{...t,exp,days:Math.round((exp-today)/864e5)};}).sort((a,b)=>a.days-b.days);
   const expiring=sorted.filter(t=>t.days<=WARN);
+
+  // Notification banners (dashboard top)
   document.getElementById('expiryNotifications').innerHTML=expiring.map(t=>{
     const urg=t.days<=30;const cls=urg?'notif-urgent':'notif-warning';
     const msg=t.days<0?`Expired ${Math.abs(t.days)} days ago.`:urg?'Renewal required within the month.':'Expiring soon — start renewal discussion.';
     return`<div class="notif-banner ${cls}"><div class="notif-icon">${urg?'🔴':'🟡'}</div><div class="notif-body"><div class="notif-title">Renewal Alert — ${getPropName(t.property)} / ${getUnitName(t.property,t.unit)} (${t.name})</div><div class="notif-desc">${msg} · Expiry: <strong>${fmtDate(t.end)}</strong> · OMR ${fmtN(t.rent)}/mo</div></div><div style="text-align:right;flex-shrink:0"><div class="notif-days">${t.days<0?'!':t.days}</div><div class="notif-days-label">${t.days<0?'EXPIRED':'DAYS LEFT'}</div></div></div>`;
   }).join('');
-  document.getElementById('expiryTable').innerHTML=sorted.map(t=>{
+
+  // Compact alert on dashboard (replaces the full table)
+  const alertEl=document.getElementById('expiryAlert');
+  if(alertEl){
+    if(expiring.length>0){
+      alertEl.innerHTML=`<div class="section-header" style="cursor:pointer" onclick="showPage('renewals',null)"><div class="section-title">⚠ Contract Renewals <span>${expiring.length} expiring within 60 days — click to view</span></div></div>`;
+    } else {
+      alertEl.innerHTML=`<div class="section-header" style="cursor:pointer" onclick="showPage('renewals',null)"><div class="section-title">✓ Contract Renewals <span>All contracts active — click to view</span></div></div>`;
+    }
+  }
+
+  // Full table on renewals page
+  const tbl=document.getElementById('expiryTable');
+  if(tbl) tbl.innerHTML=sorted.map(t=>{
     const exp=t.days<0,urg=t.days>=0&&t.days<=30,warn=t.days>30&&t.days<=WARN;
     const rc=exp||urg?'expiry-critical':warn?'expiry-warning':'';
     const pill=exp?'<span class="kpi-badge badge-red">Expired</span>':urg?'<span class="kpi-badge badge-red">Urgent</span>':warn?'<span class="kpi-badge badge-amber">Renew Soon</span>':'<span class="kpi-badge badge-green">Active</span>';
-    const dl=exp?`<span class="text-red">${Math.abs(t.days)}d overdue</span>`:urg?`<span class="text-red">${t.days}d</span>`:warn?`<span class="text-muted">${t.days}d</span>`:`<span class="text-muted">${t.days}d</span>`;
+    const dl=exp?`<span class="text-red">${Math.abs(t.days)}d overdue</span>`:urg?`<span class="text-red">${t.days}d</span>`:`<span class="text-muted">${t.days}d</span>`;
     return`<tr class="${rc}"><td>${getProp(t.property)?.flag||''} ${getPropName(t.property)}</td><td>${getUnitName(t.property,t.unit)}</td><td>${t.name||'—'}</td><td class="text-gold">OMR ${fmtN(t.rent)}/mo</td><td>${fmtDate(t.end)}</td><td>${dl}</td><td>${pill}</td></tr>`;
   }).join('');
 }
