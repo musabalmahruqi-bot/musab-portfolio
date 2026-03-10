@@ -207,6 +207,7 @@ tbody tr:hover{background:var(--surface2);}
 <div id="loadingScreen">
   <div class="spinner"></div>
   <div class="loading-text">Loading your portfolio...</div>
+  <div id="loadingMsg" style="font-size:11px;color:#7a7a85;margin-top:8px;font-family:monospace"></div>
 </div>
 
 <div id="appShell">
@@ -412,9 +413,9 @@ tbody tr:hover{background:var(--surface2);}
 // ═══════════════════════════════════
 //  JSONBIN CONFIG
 // ═══════════════════════════════════
-const JSONBIN_KEY = '$2a$10$ISOFcAa7q7wNGeBcGiomXuHUjtDffnhNB4u4mxlGaICW7aavN/fFy';
+const JSONBIN_KEY  = '$2a$10$ISOFcAa7q7wNGeBcGiomXuHUjtDffnhNB4u4mxlGaICW7aavN/fFy';
 const JSONBIN_BASE = 'https://api.jsonbin.io/v3/b';
-const BIN_ID = '69aeaa4b43b1c97be9c47f81';
+const BIN_ID       = '69aeaa4b43b1c97be9c47f81';
 
 
 // ═══════════════════════════════════
@@ -536,7 +537,7 @@ let payments=[], expenses=[], tenants=[], currentPage='dashboard', rentFilter='a
 function setCookie(name,val){document.cookie=name+"="+val+";path=/;max-age=31536000;SameSite=Lax";}
 function getCookie(name){const m=document.cookie.match("(^|;)\\s*"+name+"\\s*=\\s*([^;]+)");return m?m[2]:null;}
 function delCookie(name){document.cookie=name+"=;path=/;max-age=0";}
-async function resetAndReload(){if(!confirm("Reset all data to defaults? This will restore Tilal payments."))return;delCookie("portfolio_bin_id");payments=DEFAULT_DATA.payments;expenses=DEFAULT_DATA.expenses;tenants=DEFAULT_DATA.tenants;await jbSave({payments,expenses,tenants});renderPage(currentPage);alert("Done! Data has been reset.");}
+async function resetAndReload(){if(!confirm("Reset all data to defaults? This will restore Tilal payments."))return;delCookie("portfolio_bin_id");payments=DEFAULT_DATA.payments;expenses=DEFAULT_DATA.expenses;tenants=DEFAULT_DATA.tenants;jbSave({payments,expenses,tenants});renderPage(currentPage);alert("Done! Data has been reset.");}
 
 // ═══════════════════════════════════
 //  JSONBIN API
@@ -544,7 +545,7 @@ async function resetAndReload(){if(!confirm("Reset all data to defaults? This wi
 async function jbGet(){
   try{
     const controller = new AbortController();
-    const timeout = setTimeout(()=>controller.abort(), 8000);
+    const timeout = setTimeout(()=>controller.abort(), 10000);
     const r = await fetch(`${JSONBIN_BASE}/${BIN_ID}/latest`,{
       headers:{'X-Master-Key':JSONBIN_KEY},
       signal:controller.signal
@@ -569,19 +570,23 @@ async function jbSave(data){
 
 async function loadData(){
   setSyncStatus('loading');
-  try {
+  const loadingMsg = document.getElementById('loadingMsg');
+  if(loadingMsg) loadingMsg.textContent = 'Connecting to database...';
+  try{
     const data = await jbGet();
     if(data && data.payments && data.payments.length > 0){
       payments = data.payments;
       expenses = data.expenses;
       tenants  = data.tenants;
     } else {
+      if(loadingMsg) loadingMsg.textContent = 'First run — initialising...';
       payments = DEFAULT_DATA.payments;
       expenses = DEFAULT_DATA.expenses;
       tenants  = DEFAULT_DATA.tenants;
-      jbSave({payments,expenses,tenants}); // fire and forget, don't await
+      await jbSave({payments,expenses,tenants});
     }
-  } catch(e) {
+  }catch(e){
+    if(loadingMsg) loadingMsg.textContent = 'Network error — loading defaults.';
     payments = DEFAULT_DATA.payments;
     expenses = DEFAULT_DATA.expenses;
     tenants  = DEFAULT_DATA.tenants;
@@ -592,7 +597,7 @@ async function loadData(){
 
 async function saveData(){
   setSyncStatus('saving');
-  const ok = await jbSave({payments,expenses,tenants});
+  const ok = jbSave({payments,expenses,tenants});
   setSyncStatus(ok?'ok':'error');
 }
 
