@@ -281,6 +281,10 @@ tbody tr:hover{background:var(--surface2);}
         <div id="expiryAlert"></div>
         <div class="section-header"><div class="section-title">Recent Payments <span>latest entries</span></div><button class="btn btn-ghost" onclick="showPage('rent',null)">View All</button></div>
         <div class="table-card"><table><thead><tr><th>Property</th><th>Tenant</th><th>Amount</th><th>Due</th><th>Status</th></tr></thead><tbody id="recentPayments"></tbody></table></div>
+        <div class="chart-card" style="margin-top:24px">
+          <div class="chart-label">Budget vs Actual — Waterfall YTD 2026</div>
+          <div id="waterfallWrapDash"></div>
+        </div>
       </div>
 
       <div class="page" id="page-properties"><div class="property-grid" id="propertyGrid"></div></div>
@@ -773,7 +777,8 @@ function renderPage(id){
 // ═══════════════════════════════════
 function renderWaterfall(){
   var wrap = document.getElementById('waterfallWrap');
-  if(!wrap) return;
+  var wrapDash = document.getElementById('waterfallWrapDash');
+  if(!wrap && !wrapDash) return;
 
   // Headline figures - identical to renderBudget KPIs
   var curM = new Date().getMonth();
@@ -886,13 +891,15 @@ function renderWaterfall(){
   });
 
   out += '</svg>';
-  wrap.innerHTML=out;
+  if(wrap) wrap.innerHTML=out;
+  if(wrapDash) wrapDash.innerHTML=out;
 }
 
 // ═══════════════════════════════════
 //  DASHBOARD
 // ═══════════════════════════════════
 function renderDashboard(){
+  renderWaterfall();
   const paid=payments.filter(p=>p.status==='paid');
   const totalIn=paid.reduce((s,p)=>s+Number(p.amount),0);
   const totalEx=expenses.reduce((s,e)=>s+Number(e.amount),0);
