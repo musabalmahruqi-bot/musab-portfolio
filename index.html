@@ -267,7 +267,7 @@ tbody tr:hover{background:var(--surface2);}
 
         </div>
         <div class="chart-grid">
-          <div class="chart-card"><div class="chart-label">Income by Property — YTD</div><div class="bar-chart" id="incomeChart"></div></div>
+          <div class="chart-card"><div class="chart-label">Budget vs Actual — Waterfall YTD 2026</div><div id="waterfallWrapDash"></div></div>
           <div class="chart-card"><div class="chart-label">Occupancy Status</div>        <div class="section-header"><div class="section-title">March 2026 <span>Expected payments &amp; expenses</span></div></div>
         <div class="table-card" style="padding:16px 20px"><div id="kpi-month-table" style="font-size:12px"></div></div>
 
@@ -278,13 +278,10 @@ tbody tr:hover{background:var(--surface2);}
             </div>
           </div>
         </div>
+        <div class="chart-card" style="margin-bottom:24px"><div class="chart-label">Income by Property — YTD</div><div class="bar-chart" id="incomeChart"></div></div>
         <div id="expiryAlert"></div>
         <div class="section-header"><div class="section-title">Recent Payments <span>latest entries</span></div><button class="btn btn-ghost" onclick="showPage('rent',null)">View All</button></div>
         <div class="table-card"><table><thead><tr><th>Property</th><th>Tenant</th><th>Amount</th><th>Due</th><th>Status</th></tr></thead><tbody id="recentPayments"></tbody></table></div>
-        <div class="chart-card" style="margin-top:24px">
-          <div class="chart-label">Budget vs Actual — Waterfall YTD 2026</div>
-          <div id="waterfallWrapDash"></div>
-        </div>
       </div>
 
       <div class="page" id="page-properties"><div class="property-grid" id="propertyGrid"></div></div>
