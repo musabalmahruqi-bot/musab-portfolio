@@ -752,28 +752,35 @@ function renderWaterfall(){
   if(!wrap) return;
 
   // Headline figures - identical to renderBudget KPIs
-  var paid = payments.filter(function(p){ return p.status==='paid'; });
-  var totalPaid = paid.reduce(function(s,p){ return s+Number(p.amount); },0);
-  var totalExp  = expenses.reduce(function(s,e){ return s+Number(e.amount); },0);
-  var ACTUAL_YTD = totalPaid - totalExp;
   var curM = new Date().getMonth();
+  var paid = payments.filter(function(p){
+    if(p.status!=='paid') return false;
+    var d=new Date((p.due||p.paid)+'T00:00:00');
+    return d.getFullYear()===2026 && d.getMonth()<=curM;
+  });
+  var totalPaid = paid.reduce(function(s,p){ return s+Number(p.amount); },0);
+  var totalExp  = expenses.filter(function(e){
+    var d=new Date((e.date||'')+'T00:00:00');
+    return d.getFullYear()===2026 && d.getMonth()<=curM;
+  }).reduce(function(s,e){ return s+Number(e.amount); },0);
+  var ACTUAL_YTD = totalPaid - totalExp;
   var BUDGET_YTD = BUDGET.total.slice(0,curM+1).reduce(function(s,v){return s+v;},0);
 
-  // Rent received for a property in Jan+Feb 2026
+  // Rent received for a property YTD 2026
   function rentYTD(prop){
     return paid.filter(function(p){
       if(p.property !== prop) return false;
       var d = new Date((p.due||p.paid)+'T00:00:00');
-      return d.getFullYear()===2026 && d.getMonth()<=1;
+      return d.getFullYear()===2026 && d.getMonth()<=curM;
     }).reduce(function(s,p){ return s+Number(p.amount); },0);
   }
 
-  // Expenses for a property in Jan+Feb 2026
+  // Expenses for a property YTD 2026
   function expYTD(prop){
     return expenses.filter(function(e){
       if(e.property !== prop) return false;
       var d = new Date(e.date+'T00:00:00');
-      return d.getFullYear()===2026 && d.getMonth()<=1;
+      return d.getFullYear()===2026 && d.getMonth()<=curM;
     }).reduce(function(s,e){ return s+Number(e.amount); },0);
   }
 
@@ -1104,12 +1111,13 @@ function getActualExpenseByProp(prop, monthIdx){
 function renderBudget(){
   renderWaterfall();
   const curMonth=new Date().getMonth(); // 0-based, current month index
+  // Include current month in actual (all paid receipts due this month or earlier)
   const isYTD2026=d=>{const dt=new Date((d||'')+'T00:00:00');return dt.getFullYear()===2026&&dt.getMonth()<=curMonth;};
   const paid=payments.filter(p=>p.status==='paid'&&isYTD2026(p.due||p.paid));
   const actualYTD=paid.reduce((s,p)=>s+Number(p.amount),0);
   const expYTD=expenses.filter(e=>isYTD2026(e.date)).reduce((s,e)=>s+Number(e.amount),0);
   const netYTD=actualYTD-expYTD;
-  // Cumulative budget YTD = sum of BUDGET.total[0..curMonth]
+  // Budget YTD = cumulative sum through current month (Jan=0 → index 0..curMonth)
   const budgetYTD=BUDGET.total.slice(0,curMonth+1).reduce((s,v)=>s+v,0);
   const variance=netYTD-budgetYTD;
 
