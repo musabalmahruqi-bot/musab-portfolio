@@ -793,7 +793,7 @@ function renderWaterfall(){
     { label:'Residence',  b: bYTD(BUDGET.residence),   a: netYTD('residence') },
     { label:'Reehan',     b: bYTD(BUDGET.reehan),      a: netYTD('reehan') },
     { label:'Manchester', b: bYTD(BUDGET.manchester),  a: netYTD('manchester') },
-  ].filter(function(p){ return p.b!==0 || p.a!==0; });
+  ].filter(function(p){ return Math.abs(p.a - p.b) >= 50; });
 
   // Build waterfall steps with correct floating bars
   var run = BUDGET_YTD;
