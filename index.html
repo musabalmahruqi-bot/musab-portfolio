@@ -1171,9 +1171,9 @@ function renderBudget(){
       <th colspan="2" style="text-align:center;border-left:1px solid var(--border2);color:var(--gold)">Total</th>
     </tr>
     <tr>
-      <th style="position:sticky;left:0;background:var(--surface);z-index:2;font-size:9px;color:var(--text-dim)">B = Budget &nbsp; A = Actual</th>
-      ${MONTHS.map(()=>'<th style="color:var(--gold);font-size:9px;text-align:right;border-left:1px solid var(--border)">B</th><th style="color:var(--green);font-size:9px;text-align:right">A</th>').join('')}
-      <th style="color:var(--gold);font-size:9px;text-align:right;border-left:1px solid var(--border2)">B</th>
+      <th style="position:sticky;left:0;background:var(--surface);z-index:2;font-size:9px;color:var(--text-dim)">🔒 B = Budget (locked) &nbsp;·&nbsp; A = Actual</th>
+      ${MONTHS.map(()=>'<th style="color:var(--text-dim);font-size:9px;text-align:right;border-left:1px solid var(--border);font-style:italic">B🔒</th><th style="color:var(--green);font-size:9px;text-align:right">A</th>').join('')}
+      <th style="color:var(--text-dim);font-size:9px;text-align:right;border-left:1px solid var(--border2);font-style:italic">B🔒</th>
       <th style="color:var(--green);font-size:9px;text-align:right">A</th>
     </tr>
   </thead>
@@ -1204,6 +1204,13 @@ function renderBudget(){
           a = getActualExpenseByProp(row.prop, i);
         } else if(row.prop && row.unit){
           a = getActualByPropUnit(row.prop, row.unit, i);
+          // Also subtract any expenses for this property in this month
+          const propExp = expenses.filter(e=>{
+            if(e.property!==row.prop) return false;
+            const d=new Date((e.date||'')+'T00:00:00');
+            return d.getMonth()===i && d.getFullYear()===2026;
+          }).reduce((s,e)=>s+Number(e.amount),0);
+          a -= propExp;
         }
       } else if(isSubtotal && row.prop==='rahba'){
         // Sum all rahba payments minus expenses for this month
@@ -1224,7 +1231,7 @@ function renderBudget(){
       totalA += a;
 
       const future = i > currentMonth;
-      const bCell = b!==0 ? `<td style="text-align:right;color:var(--gold);border-left:1px solid var(--border);${future?'opacity:.4':''}">${fmtN(b)}</td>` : `<td style="border-left:1px solid var(--border);color:var(--text-dim);text-align:right">—</td>`;
+      const bCell = b!==0 ? `<td style="text-align:right;color:var(--text-dim);border-left:1px solid var(--border);font-style:italic;${future?'opacity:.3':''}">${fmtN(b)}</td>` : `<td style="border-left:1px solid var(--border);color:var(--text-dim);text-align:right;font-style:italic">—</td>`;
 
       let aColor = a>0?'var(--green)':a<0?'var(--red)':'var(--text-dim)';
       // variance color: green if actual >= budget (for income rows), red if under
@@ -1236,7 +1243,7 @@ function renderBudget(){
       return bCell+aCell;
     }).join('');
 
-    const totalBCell = `<td style="text-align:right;color:var(--gold);font-weight:${isSeparator?'600':'400'};border-left:1px solid var(--border2)">${totalB!==0?fmtN(totalB):'—'}</td>`;
+    const totalBCell = `<td style="text-align:right;color:var(--text-dim);font-weight:${isSeparator?'600':'400'};font-style:italic;border-left:1px solid var(--border2)">${totalB!==0?fmtN(totalB):'—'}</td>`;
     const totalAColor = totalA>=totalB?'var(--green)':totalA>0?'var(--amber)':'var(--text-dim)';
     const totalACell  = `<td style="text-align:right;color:${totalAColor};font-weight:${isSeparator?'600':'400'}">${totalA!==0?fmtN(totalA):'—'}</td>`;
 
