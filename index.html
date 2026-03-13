@@ -1141,18 +1141,6 @@ function getActualExpenseByProp(prop, monthIdx){
 
 function renderBudget(){
   renderWaterfall();
-  // DEBUG: log Feb (i=1) data for luban, tilal, manchester
-  ['luban','tilal','manchester'].forEach(prop=>{
-    const expFeb = expenses.filter(e=>{
-      if(e.property!==prop) return false;
-      if(!e.date) return false;
-      const ds=String(e.date).split('T')[0];
-      const parts=ds.split('-');
-      return parseInt(parts[0])===2026 && parseInt(parts[1])===2;
-    });
-    const payFeb = payments.filter(p=>p.status==='paid'&&p.property===prop&&new Date((p.due||p.paid)+'T00:00:00').getMonth()===1&&new Date((p.due||p.paid)+'T00:00:00').getFullYear()===2026);
-    console.log(`[DEBUG ${prop}] Feb expenses:`, expFeb, '| Feb payments:', payFeb);
-  });
   const curMonth=new Date().getMonth(); // 0-based, current month index
   // Include current month in actual (all paid receipts due this month or earlier)
   const isYTD2026=d=>{const dt=new Date((d||'')+'T00:00:00');return dt.getFullYear()===2026&&dt.getMonth()<=curMonth;};
