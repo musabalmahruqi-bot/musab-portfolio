@@ -190,6 +190,7 @@ tbody tr:hover{background:var(--surface2);}
 }
 .hamburger{display:none;background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:20px;padding:4px;}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
 </head>
 <body>
 
@@ -586,6 +587,28 @@ const DEFAULT_DATA = {
 //  APP STATE
 // ═══════════════════════════════════
 let payments=[], expenses=[], tenants=[], currentPage='dashboard', rentFilter='all', expFilter='all';
+let currentUser = '';
+
+// ═══════════════════════════════════
+//  EMAIL NOTIFICATIONS (EmailJS)
+// ═══════════════════════════════════
+const EJS_SERVICE  = 'service_shqw4hu';
+const EJS_TEMPLATE = 'template_t80vssm';
+const EJS_KEY      = 'cAV25jzxpFwQVvI4_';
+const WATCHED_USER = 'son';
+
+function notifyOwner(action, detail){
+  if(currentUser !== WATCHED_USER) return;
+  try {
+    emailjs.init(EJS_KEY);
+    emailjs.send(EJS_SERVICE, EJS_TEMPLATE, {
+      user:   currentUser,
+      action: action,
+      detail: detail,
+      time:   new Date().toLocaleString('en-GB', {dateStyle:'medium', timeStyle:'short'})
+    });
+  } catch(e){ console.warn('EmailJS error:', e); }
+}
 
 
 // COOKIE HELPERS
@@ -674,6 +697,8 @@ function doLogin(){
   const pass  = document.getElementById('loginPass').value;
   const user  = USERS.find(u=>u.email===email && u.password===pass);
   if(!user){ document.getElementById('loginError').textContent='Incorrect username or password.'; return; }
+  currentUser = user.email;
+  notifyOwner('Login', 'Signed into the portfolio app');
   document.getElementById('loginScreen').style.display='none';
   document.getElementById('loadingScreen').style.display='flex';
   document.getElementById('userLabel').textContent=email;
@@ -1267,6 +1292,7 @@ function savePayment(){
   const rec={id:idx!==''?payments[parseInt(idx)].id:nextId(payments),property:document.getElementById('pay-property').value,unit:document.getElementById('pay-unit').value,tenant:document.getElementById('pay-tenant').value,amount:parseFloat(document.getElementById('pay-amount').value)||0,due:document.getElementById('pay-due').value,paid:document.getElementById('pay-paid').value,status:document.getElementById('pay-status').value,notes:document.getElementById('pay-notes').value};
   if(!rec.property||!rec.tenant||!rec.amount){alert('Fill in property, tenant and amount.');return;}
   if(idx!==''){payments[parseInt(idx)]=rec;}else{payments.unshift(rec);}
+  notifyOwner(idx!==''?'Edit Payment':'Add Payment', `${getPropName(rec.property)} | ${rec.tenant} | OMR ${rec.amount} | ${rec.due}`);
   saveData().then(()=>renderPage(currentPage));
   closeModal('addPayment');
 }
@@ -1284,7 +1310,7 @@ function editPayment(i){
   document.getElementById('payModalTitle').textContent='Edit Payment';
   document.getElementById('modal-addPayment').classList.add('open');
 }
-function deletePayment(i){if(!confirm('Delete this payment?'))return;payments.splice(i,1);saveData().then(()=>renderPage(currentPage));}
+function deletePayment(i){if(!confirm('Delete this payment?'))return;const p=payments[i];notifyOwner('Delete Payment',`${getPropName(p.property)} | ${p.tenant} | OMR ${p.amount} | ${p.due}`);payments.splice(i,1);saveData().then(()=>renderPage(currentPage));}
 
 // EXPENSE CRUD
 function saveExpense(){
@@ -1292,6 +1318,7 @@ function saveExpense(){
   const rec={id:idx!==''?expenses[parseInt(idx)].id:nextId(expenses),property:document.getElementById('exp-property').value,cat:document.getElementById('exp-cat').value,desc:document.getElementById('exp-desc').value,amount:parseFloat(document.getElementById('exp-amount').value)||0,date:document.getElementById('exp-date').value,paidby:document.getElementById('exp-paidby').value};
   if(!rec.property||!rec.desc||!rec.amount){alert('Fill in property, description and amount.');return;}
   if(idx!==''){expenses[parseInt(idx)]=rec;}else{expenses.unshift(rec);}
+  notifyOwner(idx!==''?'Edit Expense':'Add Expense', `${getPropName(rec.property)} | ${rec.desc} | OMR ${rec.amount} | ${rec.date}`);
   saveData().then(()=>renderPage(currentPage));
   closeModal('addExpense');
 }
@@ -1307,7 +1334,7 @@ function editExpense(i){
   document.getElementById('expModalTitle').textContent='Edit Expense';
   document.getElementById('modal-addExpense').classList.add('open');
 }
-function deleteExpense(i){if(!confirm('Delete this expense?'))return;expenses.splice(i,1);saveData().then(()=>renderPage(currentPage));}
+function deleteExpense(i){if(!confirm('Delete this expense?'))return;const e=expenses[i];notifyOwner('Delete Expense',`${getPropName(e.property)} | ${e.desc} | OMR ${e.amount}`);expenses.splice(i,1);saveData().then(()=>renderPage(currentPage));}
 
 // TENANT CRUD
 function saveTenant(){
@@ -1315,6 +1342,7 @@ function saveTenant(){
   const rec={id:idx!==''?tenants[parseInt(idx)].id:nextId(tenants),name:document.getElementById('ten-name').value,property:document.getElementById('ten-property').value,unit:document.getElementById('ten-unit').value,start:document.getElementById('ten-start').value,end:document.getElementById('ten-end').value,rent:parseFloat(document.getElementById('ten-rent').value)||0,contact:document.getElementById('ten-contact').value,status:document.getElementById('ten-status').value};
   if(!rec.name||!rec.property){alert('Fill in name and property.');return;}
   if(idx!==''){tenants[parseInt(idx)]=rec;}else{tenants.push(rec);}
+  notifyOwner(idx!==''?'Edit Tenant':'Add Tenant', `${rec.name} | ${getPropName(rec.property)} | OMR ${rec.rent}/mo`);
   saveData().then(()=>renderPage(currentPage));
   closeModal('addTenant');
 }
@@ -1332,7 +1360,7 @@ function editTenant(i){
   document.getElementById('tenModalTitle').textContent='Edit Tenant';
   document.getElementById('modal-addTenant').classList.add('open');
 }
-function deleteTenant(i){if(!confirm('Delete this tenant?'))return;tenants.splice(i,1);saveData().then(()=>renderPage(currentPage));}
+function deleteTenant(i){if(!confirm('Delete this tenant?'))return;const t=tenants[i];notifyOwner('Delete Tenant',`${t.name} | ${getPropName(t.property)}`);tenants.splice(i,1);saveData().then(()=>renderPage(currentPage));}
 
 
 // ═══════════════════════════════════
