@@ -1102,9 +1102,10 @@ function getActualExpenseByProp(prop, monthIdx){
 
 function renderBudget(){
   renderWaterfall();
-  const paid=payments.filter(p=>p.status==='paid');
+  const isYTD2026=d=>{const dt=new Date((d||'')+'T00:00:00');return dt.getFullYear()===2026&&dt.getMonth()<=1;};
+  const paid=payments.filter(p=>p.status==='paid'&&isYTD2026(p.due||p.paid));
   const actualYTD=paid.reduce((s,p)=>s+Number(p.amount),0);
-  const expYTD=expenses.reduce((s,e)=>s+Number(e.amount),0);
+  const expYTD=expenses.filter(e=>isYTD2026(e.date)).reduce((s,e)=>s+Number(e.amount),0);
   const netYTD=actualYTD-expYTD;
   const budgetYTD=12176.3;
   const variance=netYTD-budgetYTD;
