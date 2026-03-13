@@ -766,13 +766,10 @@ function renderWaterfall(){
   var ACTUAL_YTD = totalPaid - totalExp;
   var BUDGET_YTD = BUDGET.total.slice(0,curM+1).reduce(function(s,v){return s+v;},0);
 
-  // Rent received for a property YTD 2026
+  // Rent received for a property YTD 2026 (paid already filtered to YTD)
   function rentYTD(prop){
-    return paid.filter(function(p){
-      if(p.property !== prop) return false;
-      var d = new Date((p.due||p.paid)+'T00:00:00');
-      return d.getFullYear()===2026 && d.getMonth()<=curM;
-    }).reduce(function(s,p){ return s+Number(p.amount); },0);
+    return paid.filter(function(p){ return p.property===prop; })
+               .reduce(function(s,p){ return s+Number(p.amount); },0);
   }
 
   // Expenses for a property YTD 2026
@@ -787,8 +784,8 @@ function renderWaterfall(){
   // Net actual = rent - expenses (same as budget table subtotal rows)
   function netYTD(prop){ return rentYTD(prop) - expYTD(prop); }
 
-  // Budget Jan+Feb
-  function bYTD(arr){ return (arr[0]||0)+(arr[1]||0); }
+  // Budget sum Jan..curM for a property array
+  function bYTD(arr){ return arr.slice(0,curM+1).reduce(function(s,v){return s+(v||0);},0); }
 
   var props = [
     { label:'Rahba',      b: bYTD(BUDGET.rahba_total), a: netYTD('rahba') },
