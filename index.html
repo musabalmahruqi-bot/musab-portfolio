@@ -1204,15 +1204,6 @@ function renderBudget(){
           a = getActualExpenseByProp(row.prop, i);
         } else if(row.prop && row.unit){
           a = getActualByPropUnit(row.prop, row.unit, i);
-          // Also subtract any expenses for this property in this month
-          const propExp = expenses.filter(e=>{
-            if(e.property!==row.prop) return false;
-            if(!e.date) return false;
-            const ds=String(e.date).split('T')[0];
-            const parts=ds.split('-');
-            return parseInt(parts[0])===2026 && (parseInt(parts[1])-1)===i;
-          }).reduce((s,e)=>s+Number(e.amount),0);
-          a -= propExp;
         }
       } else if(isSubtotal && row.prop==='rahba'){
         // Sum all rahba payments minus expenses for this month
