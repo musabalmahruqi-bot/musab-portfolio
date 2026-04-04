@@ -172,6 +172,33 @@ tbody tr:hover{background:var(--surface2);}
 .text-red{color:var(--red);}
 .text-muted{color:var(--text-muted);}
 .empty{text-align:center;padding:40px;color:var(--text-dim);}
+/* ── LEASE EXPIRY TIMELINE ─────────────────────────────────── */
+.timeline-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:28px;}
+.timeline-header{padding:16px 20px;border-bottom:1px solid var(--border);}
+.timeline-header h3{font-family:'Cormorant Garamond',serif;font-size:17px;font-weight:400;margin:0 0 2px;}
+.timeline-header p{font-size:10px;color:var(--text-muted);margin:0;}
+.timeline-tbl{width:100%;border-collapse:collapse;font-size:11px;}
+.timeline-tbl th{padding:8px 10px;text-align:center;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-dim);font-weight:400;border-bottom:1px solid var(--border);}
+.timeline-tbl th:first-child,.timeline-tbl th:nth-child(2),.timeline-tbl th:nth-child(3){text-align:left;}
+.timeline-tbl td{padding:7px 10px;text-align:center;border-bottom:1px solid var(--border);font-size:11px;}
+.timeline-tbl td:first-child,.timeline-tbl td:nth-child(2),.timeline-tbl td:nth-child(3){text-align:left;}
+.timeline-tbl tbody tr:hover{background:var(--surface2);}
+.timeline-tbl tbody tr:last-child td{border-bottom:none;}
+.tl-active{color:var(--green);font-weight:500;}
+.tl-end{color:var(--red);font-weight:600;}
+.tl-plan{color:var(--gold);font-weight:500;}
+.tl-past{color:var(--text-dim);}
+.tl-na{color:var(--text-dim);}
+.tl-status-renewed{background:var(--green-dim);color:var(--green);padding:2px 7px;border-radius:20px;font-size:10px;font-weight:500;}
+.tl-status-active{background:var(--green-dim);color:var(--green);padding:2px 7px;border-radius:20px;font-size:10px;}
+.tl-status-ending{background:var(--amber-dim);color:var(--amber);padding:2px 7px;border-radius:20px;font-size:10px;}
+.tl-status-expired{background:var(--red-dim);color:var(--red);padding:2px 7px;border-radius:20px;font-size:10px;}
+.tl-status-nolease{color:var(--text-dim);font-size:10px;font-style:italic;}
+.tl-legend{display:flex;gap:16px;padding:12px 20px;border-top:1px solid var(--border);flex-wrap:wrap;}
+.tl-legend-item{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text-muted);}
+.tl-legend-sym{font-size:12px;width:16px;text-align:center;}
+.timeline-tbl .tl-month-current{background:rgba(186,117,23,0.06);}
+.timeline-tbl th.tl-month-current{background:rgba(186,117,23,0.10);color:var(--gold);font-weight:500;}
 .page{display:none;}
 .page.active{display:block;}
 ::-webkit-scrollbar{width:5px;}
@@ -279,6 +306,20 @@ tbody tr:hover{background:var(--surface2);}
           </div>
         </div>
         <div class="chart-card" style="margin-bottom:24px"><div class="chart-label">Income by Property — YTD</div><div class="bar-chart" id="incomeChart"></div></div>
+        <div class="timeline-card" id="leaseTimelineCard">
+          <div class="timeline-header">
+            <h3>📅 Lease Expiry Timeline — 2026</h3>
+            <p>Track lease renewals proactively across all properties</p>
+          </div>
+          <div style="overflow-x:auto"><table class="timeline-tbl" id="leaseTimelineTable"></table></div>
+          <div class="tl-legend">
+            <div class="tl-legend-item"><span class="tl-legend-sym tl-active">✓</span> Active</div>
+            <div class="tl-legend-item"><span class="tl-legend-sym tl-plan">●</span> Plan renewal</div>
+            <div class="tl-legend-item"><span class="tl-legend-sym" style="color:var(--gold)">📞</span> Act now</div>
+            <div class="tl-legend-item"><span class="tl-legend-sym tl-end">⚠</span> Contract ends</div>
+            <div class="tl-legend-item"><span class="tl-legend-sym tl-past">—</span> Past / N/A</div>
+          </div>
+        </div>
         <div id="expiryAlert"></div>
         <div class="section-header"><div class="section-title">Recent Payments <span>latest entries</span></div><button class="btn btn-ghost" onclick="showPage('rent',null)">View All</button></div>
         <div class="table-card"><table><thead><tr><th>Property</th><th>Tenant</th><th>Amount</th><th>Due</th><th>Status</th></tr></thead><tbody id="recentPayments"></tbody></table></div>
@@ -983,7 +1024,100 @@ function renderDashboard(){
   const mx=Math.max(...byProp.map(x=>x.val),1);
   document.getElementById('incomeChart').innerHTML=byProp.length?byProp.map(r=>`<div class="bar-row"><div class="bar-name">${r.name}</div><div class="bar-track"><div class="bar-fill" style="width:${(r.val/mx*100).toFixed(1)}%"></div></div><div class="bar-val">OMR ${fmtN(r.val)}</div></div>`).join(''):'<div class="empty">No paid payments yet</div>';
   renderExpiryTracker();
+  renderLeaseTimeline();
   setTimeout(renderWaterfall, 0);
+}
+
+// ═══════════════════════════════════
+//  LEASE EXPIRY TIMELINE (from Excel Dashboard)
+// ═══════════════════════════════════
+function renderLeaseTimeline(){
+  const tbl=document.getElementById('leaseTimelineTable');
+  if(!tbl) return;
+  const today=new Date(); today.setHours(0,0,0,0);
+  const curMonth=today.getMonth(); // 0-based
+
+  // Build header
+  let html='<thead><tr><th>Property</th><th>Contract End</th><th>Status</th>';
+  MONTHS.forEach((m,i)=>{
+    html+=`<th class="${i===curMonth?'tl-month-current':''}">${m}</th>`;
+  });
+  html+='</tr></thead><tbody>';
+
+  // Group tenants by property, matching the Excel order
+  const propOrder=['rahba','luban','reehan','residence','manchester'];
+  const rows=[];
+
+  propOrder.forEach(pid=>{
+    const prop=getProp(pid);
+    if(!prop) return;
+    const propTenants=tenants.filter(t=>t.property===pid);
+    if(propTenants.length===0){
+      // Property with no tenant record (like Manchester managed)
+      rows.push({propName:prop.flag+' '+prop.name, unitName:'',end:null,tenant:null,property:pid,noLease:pid==='manchester'});
+    } else {
+      propTenants.forEach(t=>{
+        const unitName=getUnitName(pid,t.unit);
+        rows.push({propName:prop.flag+' '+prop.name+(propTenants.length>1?' — '+unitName:''), unitName, end:t.end, tenant:t, property:pid, noLease:false});
+      });
+    }
+  });
+
+  rows.forEach(r=>{
+    if(r.noLease || !r.end){
+      // No lease / N/A row
+      const statusHtml='<span class="tl-status-nolease">ℹ️ No lease</span>';
+      html+=`<tr><td>${r.propName}</td><td>N/A</td><td>${statusHtml}</td>`;
+      for(let i=0;i<12;i++) html+=`<td class="${i===curMonth?'tl-month-current':''}"><span class="tl-na">—</span></td>`;
+      html+='</tr>';
+      return;
+    }
+    const endDate=new Date(r.end+'T00:00:00');
+    const daysLeft=Math.round((endDate-today)/864e5);
+    const endMonth=endDate.getMonth();
+    const endYear=endDate.getFullYear();
+
+    // Status column
+    let statusHtml;
+    if(daysLeft<0) statusHtml='<span class="tl-status-expired">🔴 Expired</span>';
+    else if(daysLeft<=30) statusHtml='<span class="tl-status-expired">🔴 Urgent</span>';
+    else if(daysLeft<=60) statusHtml='<span class="tl-status-ending">🟡 Ending Soon</span>';
+    else statusHtml='<span class="tl-status-active">🟢 Active</span>';
+
+    html+=`<tr><td>${r.propName}</td><td>${fmtDate(r.end)}</td><td>${statusHtml}</td>`;
+
+    // Monthly cells
+    for(let m=0;m<12;m++){
+      const isCur=m===curMonth?'tl-month-current':'';
+      if(endYear>2026){
+        // Contract extends beyond 2026
+        html+=`<td class="${isCur}"><span class="tl-active">✓</span></td>`;
+      } else if(m===endMonth && endYear===2026){
+        // Contract ends this month
+        html+=`<td class="${isCur}"><span class="tl-end">⚠ END</span></td>`;
+      } else if(m<endMonth || (endYear>2026)){
+        // Before end month — contract active
+        if(m<curMonth){
+          // Past months — still was active
+          html+=`<td class="${isCur}"><span class="tl-active">✓</span></td>`;
+        } else if(m===curMonth){
+          html+=`<td class="${isCur}"><span class="tl-active">✓</span></td>`;
+        } else if(endMonth-m<=2 && endMonth-m>0){
+          // 1-2 months before end — plan / act
+          html+=`<td class="${isCur}"><span class="tl-plan">${endMonth-m===1?'📞':'●'}</span></td>`;
+        } else {
+          html+=`<td class="${isCur}"><span class="tl-active">✓</span></td>`;
+        }
+      } else {
+        // After contract end
+        html+=`<td class="${isCur}"><span class="tl-past">—</span></td>`;
+      }
+    }
+    html+='</tr>';
+  });
+
+  html+='</tbody>';
+  tbl.innerHTML=html;
 }
 
 function renderExpiryTracker(){
