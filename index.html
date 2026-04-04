@@ -295,14 +295,10 @@ tbody tr:hover{background:var(--surface2);}
         </div>
         <div class="chart-grid">
           <div class="chart-card"><div class="chart-label">Budget vs Actual — Waterfall YTD 2026</div><div id="waterfallWrapDash"></div></div>
-          <div class="chart-card"><div class="chart-label">Occupancy Status</div>        <div class="section-header"><div class="section-title">March 2026 <span>Expected payments &amp; expenses</span></div></div>
+          <div class="chart-card"><div class="chart-label">Occupancy Status</div>        <div class="section-header"><div class="section-title"><span id="monthTitle">—</span> <span>Expected payments &amp; expenses</span></div></div>
         <div class="table-card" style="padding:16px 20px"><div id="kpi-month-table" style="font-size:12px"></div></div>
 
-            <div class="donut-container">
-              <div class="donut"><svg width="100" height="100" viewBox="0 0 100 100"><circle cx="50" cy="50" r="38" fill="none" stroke="var(--surface3)" stroke-width="12"/><circle cx="50" cy="50" r="38" fill="none" stroke="var(--green)" stroke-width="12" stroke-dasharray="239 239"/></svg>
-              <div class="donut-center"><div class="donut-pct">100%</div><div class="donut-sub">occupied</div></div></div>
-              <div class="legend"><div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Occupied — all units</div><div class="legend-item"><div class="legend-dot" style="background:var(--text-dim)"></div>Vacant — none</div></div>
-            </div>
+            <div class="donut-container" id="occupancyDonut"></div>
           </div>
         </div>
         <div class="chart-card" style="margin-bottom:24px"><div class="chart-label">Income by Property — YTD</div><div class="bar-chart" id="incomeChart"></div></div>
@@ -1015,10 +1011,56 @@ function renderDashboard(){
     +`<td></td></tr>`;
   rows+='</tbody>';
 
+  // ── Dynamic month title ──
+  const monthTitleEl=document.getElementById('monthTitle');
+  if(monthTitleEl) monthTitleEl.textContent=monthNames[mM]+' '+mY;
+
   const tbl=document.getElementById('kpi-month-table');
   if(tbl) tbl.innerHTML=incomeRows.length>0
     ?`<table style="width:100%;border-collapse:collapse;font-size:11px">${rows}</table>`
     :'<span style="color:var(--text-muted)">No entries this month</span>';
+
+  // ── Dynamic occupancy donut ──
+  const donutEl=document.getElementById('occupancyDonut');
+  if(donutEl){
+    const today=new Date(); today.setHours(0,0,0,0);
+    // Count total units (exclude sold properties)
+    const activeProps=PROPERTIES.filter(p=>!p.name.toLowerCase().includes('sold'));
+    const totalUnits=activeProps.reduce((s,p)=>s+p.units.length,0);
+    // Count occupied units (have an active tenant with lease not expired)
+    let occupiedUnits=0;
+    let vacantList=[];
+    activeProps.forEach(p=>{
+      p.units.forEach(u=>{
+        const t=tenants.find(x=>x.property===p.id && x.unit===u.id && x.status==='active');
+        if(t){
+          const endDate=t.end?new Date(t.end+'T00:00:00'):null;
+          if(!endDate || endDate>=today){
+            occupiedUnits++;
+          } else {
+            vacantList.push(p.name+' — '+u.name);
+          }
+        } else {
+          vacantList.push(p.name+' — '+u.name);
+        }
+      });
+    });
+    const occPct=totalUnits>0?Math.round(occupiedUnits/totalUnits*100):0;
+    const circumf=2*Math.PI*38; // ~238.76
+    const fillDash=(occPct/100*circumf).toFixed(1);
+    const occColor=occPct>=90?'var(--green)':occPct>=70?'var(--amber)':'var(--red)';
+    donutEl.innerHTML=`
+      <div class="donut"><svg width="100" height="100" viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r="38" fill="none" stroke="var(--surface3)" stroke-width="12"/>
+        <circle cx="50" cy="50" r="38" fill="none" stroke="${occColor}" stroke-width="12" stroke-dasharray="${fillDash} ${circumf}"/>
+      </svg>
+      <div class="donut-center"><div class="donut-pct">${occPct}%</div><div class="donut-sub">occupied</div></div></div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:${occColor}"></div>Occupied — ${occupiedUnits} of ${totalUnits} units</div>
+        ${vacantList.length>0?vacantList.map(v=>`<div class="legend-item"><div class="legend-dot" style="background:var(--text-dim)"></div>Vacant — ${v}</div>`).join('')
+        :`<div class="legend-item"><div class="legend-dot" style="background:var(--text-dim)"></div>Vacant — none</div>`}
+      </div>`;
+  }
 
   const byProp=PROPERTIES.map(p=>({name:p.name,val:paid.filter(x=>x.property===p.id).reduce((s,x)=>s+Number(x.amount),0)})).filter(x=>x.val>0).sort((a,b)=>b.val-a.val);
   const mx=Math.max(...byProp.map(x=>x.val),1);
@@ -1045,16 +1087,22 @@ function renderLeaseTimeline(){
   html+='</tr></thead><tbody>';
 
   // Group tenants by property, matching the Excel order
+  // Manchester CitySuites is a serviced apartment (self-managed, no traditional lease)
   const propOrder=['rahba','luban','reehan','residence','manchester'];
+  const NO_LEASE_PROPERTIES=['manchester']; // Properties without a traditional lease
   const rows=[];
 
   propOrder.forEach(pid=>{
     const prop=getProp(pid);
     if(!prop) return;
+    const isNoLease=NO_LEASE_PROPERTIES.includes(pid);
+    if(isNoLease){
+      rows.push({propName:prop.flag+' '+prop.name, unitName:'',end:null,tenant:null,property:pid,noLease:true});
+      return;
+    }
     const propTenants=tenants.filter(t=>t.property===pid);
     if(propTenants.length===0){
-      // Property with no tenant record (like Manchester managed)
-      rows.push({propName:prop.flag+' '+prop.name, unitName:'',end:null,tenant:null,property:pid,noLease:pid==='manchester'});
+      rows.push({propName:prop.flag+' '+prop.name, unitName:'',end:null,tenant:null,property:pid,noLease:false});
     } else {
       propTenants.forEach(t=>{
         const unitName=getUnitName(pid,t.unit);
