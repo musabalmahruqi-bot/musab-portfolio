@@ -977,37 +977,46 @@ function renderDashboard(){
   let rows='<thead><tr>'
     +'<th style="text-align:left;padding:3px 8px 3px 0;color:var(--text-muted);font-weight:500">Unit</th>'
     +'<th style="text-align:right;padding:3px 8px 3px 0;color:var(--text-muted);font-weight:500">Budgeted</th>'
+    +'<th style="text-align:right;padding:3px 8px 3px 0;color:var(--text-muted);font-weight:500">Paid</th>'
     +'<th style="text-align:right;padding:3px 0;color:var(--text-muted);font-weight:500">Status</th>'
     +'</tr></thead><tbody>';
 
-  let totBudget=0, totActual=0;
+  let totBudget=0, totPaid=0;
   incomeRows.forEach(r=>{
     totBudget+=r.budgeted;
+    totPaid+=r.actualAmt;
     const badge = r.status==='paid'
       ? '<span style="color:var(--green)">✓ paid</span>'
       : r.status==='pending'
       ? '<span style="color:var(--amber)">pending</span>'
       : '<span style="color:var(--text-muted)">expected</span>';
+    const paidColor = r.actualAmt>0 ? 'var(--green)' : 'var(--text-muted)';
+    const paidText = r.actualAmt>0 ? `OMR ${fmtN(r.actualAmt)}` : '—';
     rows+=`<tr><td style="padding:2px 8px 2px 0;color:var(--text)">${r.label}</td>`
       +`<td style="padding:2px 8px 2px 0;text-align:right;color:var(--text)">OMR ${fmtN(r.budgeted)}</td>`
+      +`<td style="padding:2px 8px 2px 0;text-align:right;color:${paidColor}">${paidText}</td>`
       +`<td style="padding:2px 0;text-align:right">${badge}</td></tr>`;
   });
 
+  let totExpActual=0;
   if(mthExp.length>0){
-    rows+=`<tr><td colspan="3" style="padding:6px 0 2px;color:var(--amber);font-weight:500;border-top:1px solid rgba(0,0,0,0.07)">Expenses</td></tr>`;
+    rows+=`<tr><td colspan="4" style="padding:6px 0 2px;color:var(--amber);font-weight:500;border-top:1px solid rgba(0,0,0,0.07)">Expenses</td></tr>`;
     mthExp.forEach(e=>{
       const amt=Number(e.amount);
-      totActual-=amt;
+      totExpActual+=amt;
       rows+=`<tr><td style="padding:2px 8px 2px 0;color:var(--text-muted)">${(PLBL[e.property]||e.property)+' — '+(e.description||e.type||'expense')}</td>`
+        +`<td style="padding:2px 8px 2px 0;text-align:right;color:var(--amber)">− OMR ${fmtN(amt)}</td>`
         +`<td style="padding:2px 8px 2px 0;text-align:right;color:var(--amber)">− OMR ${fmtN(amt)}</td>`
         +`<td></td></tr>`;
     });
   }
 
   const mthBudgetNet = BUDGET.total[mM];
+  const netPaid = totPaid - totExpActual;
   rows+=`<tr style="border-top:1px solid rgba(0,0,0,0.09)">`
     +`<td style="padding:5px 8px 2px 0;font-weight:600;color:var(--text)">${monthNames[mM]} Budget (net)</td>`
     +`<td style="padding:5px 8px 2px 0;text-align:right;font-weight:600;color:var(--gold)">OMR ${fmtN(mthBudgetNet)}</td>`
+    +`<td style="padding:5px 8px 2px 0;text-align:right;font-weight:600;color:${netPaid>0?'var(--green)':'var(--text-muted)'}">OMR ${fmtN(netPaid)}</td>`
     +`<td></td></tr>`;
   rows+='</tbody>';
 
