@@ -598,6 +598,11 @@ const DEFAULT_DATA = {
     {id:20,property:'tilal',unit:'t1',tenant:'Tenant',amount:430,due:'2026-02-01',paid:'2026-02-01',status:'paid',notes:'Feb — sold property'},
     {id:21,property:'rahba',unit:'r9',tenant:'Sarah',amount:1650,due:'2026-03-01',paid:'',status:'pending',notes:'Quarterly Mar'},
     {id:22,property:'rahba',unit:'roof',tenant:'',amount:2070,due:'2026-03-01',paid:'',status:'pending',notes:'Quarterly Mar'},
+    {id:23,property:'rahba',unit:'r2',tenant:'Saqib',amount:600,due:'2026-04-01',paid:'2026-04-01',status:'paid',notes:'Apr'},
+    {id:24,property:'rahba',unit:'r4',tenant:'Tony',amount:620,due:'2026-04-01',paid:'2026-04-01',status:'paid',notes:'Apr'},
+    {id:25,property:'rahba',unit:'r7',tenant:'Bairoz',amount:1140,due:'2026-04-01',paid:'2026-04-01',status:'paid',notes:'Apr'},
+    {id:26,property:'rahba',unit:'r10',tenant:'Lulua',amount:550,due:'2026-04-01',paid:'2026-04-01',status:'paid',notes:'Apr'},
+    {id:27,property:'manchester',unit:'m1',tenant:'',amount:1102,due:'2026-04-01',paid:'2026-04-01',status:'paid',notes:'Apr GBP'},
   ],
   expenses:[
     {id:1,property:'rahba',cat:'Management',desc:'Common expenses Jan',amount:105,date:'2026-01-01',paidby:'Owner'},
@@ -962,8 +967,9 @@ function renderDashboard(){
         return d.getMonth()===mM && d.getFullYear()===mY;
       });
       const actualAmt = actual.reduce((s,p)=>s+Number(p.amount),0);
-      const status = actual.length===0 ? 'expected' : actual[0].status==='paid' ? 'paid' : 'pending';
-      return {label:r.label, prop:r.prop, unit:r.unit, budgeted, actualAmt, status};
+      const paidAmt = actual.filter(p=>p.status==='paid').reduce((s,p)=>s+Number(p.amount),0);
+      const status = actual.length===0 ? 'expected' : actual.some(p=>p.status==='paid') ? 'paid' : 'pending';
+      return {label:r.label, prop:r.prop, unit:r.unit, budgeted, actualAmt, paidAmt, status};
     });
 
   // Build expected expense rows from expenses array this month
@@ -984,14 +990,14 @@ function renderDashboard(){
   let totBudget=0, totPaid=0;
   incomeRows.forEach(r=>{
     totBudget+=r.budgeted;
-    totPaid+=r.actualAmt;
+    totPaid+=r.paidAmt;
     const badge = r.status==='paid'
       ? '<span style="color:var(--green)">✓ paid</span>'
       : r.status==='pending'
       ? '<span style="color:var(--amber)">pending</span>'
       : '<span style="color:var(--text-muted)">expected</span>';
-    const paidColor = r.actualAmt>0 ? 'var(--green)' : 'var(--text-muted)';
-    const paidText = r.actualAmt>0 ? `OMR ${fmtN(r.actualAmt)}` : '—';
+    const paidColor = r.paidAmt>0 ? 'var(--green)' : 'var(--text-muted)';
+    const paidText = r.paidAmt>0 ? `OMR ${fmtN(r.paidAmt)}` : '—';
     rows+=`<tr><td style="padding:2px 8px 2px 0;color:var(--text)">${r.label}</td>`
       +`<td style="padding:2px 8px 2px 0;text-align:right;color:var(--text)">OMR ${fmtN(r.budgeted)}</td>`
       +`<td style="padding:2px 8px 2px 0;text-align:right;color:${paidColor}">${paidText}</td>`
@@ -1034,13 +1040,19 @@ function renderDashboard(){
   if(donutEl){
     const today=new Date(); today.setHours(0,0,0,0);
     // Count total units (exclude sold properties)
+    const NO_LEASE_OCC=['manchester','residence']; // No traditional long-term occupancy
     const activeProps=PROPERTIES.filter(p=>!p.name.toLowerCase().includes('sold'));
     const totalUnits=activeProps.reduce((s,p)=>s+p.units.length,0);
     // Count occupied units (have an active tenant with lease not expired)
     let occupiedUnits=0;
     let vacantList=[];
     activeProps.forEach(p=>{
+      const isNoLease=NO_LEASE_OCC.includes(p.id);
       p.units.forEach(u=>{
+        if(isNoLease){
+          vacantList.push(p.name+' — '+u.name);
+          return;
+        }
         const t=tenants.find(x=>x.property===p.id && x.unit===u.id && x.status==='active');
         if(t){
           const endDate=t.end?new Date(t.end+'T00:00:00'):null;
