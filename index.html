@@ -294,19 +294,20 @@ tbody tr:hover{background:var(--surface2);}
           <div class="kpi-card"><div class="kpi-label">Expenses YTD</div><div class="kpi-value"><span class="currency">OMR</span><span id="kpi-exp">—</span></div><div class="kpi-sub">Budget: <span id="kpi-exp-budget">—</span></div></div>
 
         </div>
+        <div class="chart-card" style="margin-bottom:20px"><div class="chart-label">Budget vs Actual — Waterfall YTD 2026</div><div id="waterfallWrapDash"></div></div>
         <div class="chart-grid">
-          <div class="chart-card"><div class="chart-label">Budget vs Actual — Waterfall YTD 2026</div><div id="waterfallWrapDash"></div></div>
-          <div class="chart-card"><div class="chart-label">Occupancy Status</div>        <div class="section-header"><div class="section-title">April 2026 <span>Expected payments &amp; expenses</span></div></div>
-        <div class="table-card" style="padding:16px 20px"><div id="kpi-month-table" style="font-size:12px"></div></div>
-
+          <div class="chart-card"><div class="chart-label">Occupancy Status</div>
             <div class="donut-container">
               <div class="donut"><svg width="100" height="100" viewBox="0 0 100 100"><circle cx="50" cy="50" r="38" fill="none" stroke="var(--surface3)" stroke-width="12"/><circle cx="50" cy="50" r="38" fill="none" stroke="var(--green)" stroke-width="12" stroke-dasharray="202 239"/></svg>
               <div class="donut-center"><div class="donut-pct">85%</div><div class="donut-sub">occupied</div></div></div>
               <div class="legend"><div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Occupied — 11 of 13 units</div><div class="legend-item"><div class="legend-dot" style="background:var(--text-dim)"></div>Vacant — Residence Dubai, Manchester</div></div>
             </div>
           </div>
+          <div class="chart-card"><div class="chart-label">April 2026 <span style="font-size:9px;letter-spacing:.1em;color:var(--text-muted)">— Expected payments &amp; expenses</span></div>
+            <div id="kpi-month-table" style="font-size:12px"></div>
+          </div>
         </div>
-        <div class="chart-card" style="margin-bottom:24px"><div class="chart-label">Income by Property — YTD</div><div class="bar-chart" id="incomeChart"></div></div>
+        <div class="chart-card" style="margin-bottom:24px"><div class="chart-label">YTD Collection Efficiency by Property</div><div class="bar-chart" id="collectionChart"></div></div>
         <div class="timeline-card" id="leaseTimelineCard">
           <div class="timeline-header">
             <h3>📅 Lease Expiry Timeline — 2026</h3>
@@ -615,9 +616,9 @@ const DEFAULT_DATA = {
     {id:5,name:'Bairoz Karim Khani',property:'rahba',unit:'r7',start:'2025-09-15',end:'2026-09-15',rent:570,contact:'',status:'active'},
     {id:6,name:'Tenant',property:'rahba',unit:'r8',start:'2025-10-01',end:'2026-10-01',rent:570,contact:'',status:'active'},
     {id:7,name:'Sarah',property:'rahba',unit:'r9',start:'2025-12-15',end:'2026-12-15',rent:550,contact:'',status:'active'},
-    {id:8,name:'Lulua',property:'rahba',unit:'r10',start:'2025-06-01',end:'2026-05-31',rent:550,contact:'',status:'active'},
+    {id:8,name:'Lulua',property:'rahba',unit:'r10',start:'2026-06-01',end:'2027-05-31',rent:550,contact:'',status:'active'},
     {id:13,name:'Oman Towers Company LLC',property:'rahba',unit:'roof',start:'2026-01-31',end:'2031-01-31',rent:172.5,contact:'72595400',status:'active'},
-    {id:9,name:'Tenant',property:'luban',unit:'l1',start:'2025-07-10',end:'2026-07-10',rent:525,contact:'',status:'active'},
+    {id:9,name:'Tenant',property:'luban',unit:'l1',start:'2026-07-10',end:'2027-07-10',rent:525,contact:'',status:'active'},
     {id:10,name:'Tenant',property:'reehan',unit:'re1',start:'2025-07-18',end:'2026-07-18',rent:921,contact:'',status:'active'},
     {id:11,name:'',property:'residence',unit:'rs1',start:'',end:'2026-04-08',rent:0,contact:'',status:'expired'},
     {id:12,name:'',property:'manchester',unit:'m1',start:'',end:'',rent:0,contact:'',status:'expired'},
@@ -1019,9 +1020,25 @@ function renderDashboard(){
     ?`<table style="width:100%;border-collapse:collapse;font-size:11px">${rows}</table>`
     :'<span style="color:var(--text-muted)">No entries this month</span>';
 
-  const byProp=PROPERTIES.map(p=>({name:p.name,val:paid.filter(x=>x.property===p.id).reduce((s,x)=>s+Number(x.amount),0)})).filter(x=>x.val>0).sort((a,b)=>b.val-a.val);
-  const mx=Math.max(...byProp.map(x=>x.val),1);
-  document.getElementById('incomeChart').innerHTML=byProp.length?byProp.map(r=>`<div class="bar-row"><div class="bar-name">${r.name}</div><div class="bar-track"><div class="bar-fill" style="width:${(r.val/mx*100).toFixed(1)}%"></div></div><div class="bar-val">OMR ${fmtN(r.val)}</div></div>`).join(''):'<div class="empty">No paid payments yet</div>';
+  // Collection Efficiency by unit (matching Excel RE Budget chart)
+  const collRows=EXCEL_ROWS.filter(r=>(r.cat==='villa'||r.cat==='property')&&r.prop!=='tilal').map(r=>{
+    const bYTD=r.budget.slice(0,curM+1).reduce((s,v)=>s+v,0);
+    if(bYTD<=0) return null;
+    const paidAmt=paid.filter(p=>p.property===r.prop&&(r.unit?p.unit===r.unit:true)).reduce((s,p)=>s+Number(p.amount),0);
+    const expAmt=expenses.filter(e=>{
+      if(e.property!==r.prop) return false;
+      if(r.unit&&r.cat==='property'){var d=new Date(e.date+'T00:00:00');return d.getFullYear()===2026&&d.getMonth()<=curM;}
+      return false;
+    }).reduce((s,e)=>s+Number(e.amount),0);
+    const netAmt=paidAmt-expAmt;
+    const pct=Math.round(netAmt/bYTD*100);
+    return {label:r.label,pct};
+  }).filter(Boolean);
+  const ce=document.getElementById('collectionChart');
+  if(ce) ce.innerHTML=collRows.length?collRows.map(r=>{
+    const col=r.pct>=100?'#2e8b7e':r.pct>=50?'#e8993e':'#b85c5c';
+    return`<div class="bar-row"><div class="bar-name" style="width:200px">${r.label}</div><div class="bar-track" style="height:18px;border-radius:4px"><div class="bar-fill" style="width:${Math.min(r.pct,120)}%;background:${col};border-radius:4px;height:100%"></div></div><div class="bar-val" style="font-weight:600;color:${col}">${r.pct}%</div></div>`;
+  }).join(''):'<div class="empty">No data</div>';
   renderExpiryTracker();
   renderLeaseTimeline();
   setTimeout(renderWaterfall, 0);
