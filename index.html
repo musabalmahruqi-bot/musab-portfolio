@@ -150,6 +150,8 @@ tbody tr:hover{background:var(--surface2);}
 .prop-location{font-size:10px;color:var(--text-muted);}
 .prop-status{font-size:10px;padding:3px 9px;border-radius:20px;}
 .status-occupied{background:var(--green-dim);color:var(--green);}
+.status-vacant{background:var(--red-dim);color:var(--red);}
+.status-sold{background:var(--surface3);color:var(--text-dim);}
 .prop-body{padding:16px 20px;}
 .prop-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;}
 .prop-stat-label{font-size:9px;color:var(--text-dim);letter-spacing:.1em;text-transform:uppercase;margin-bottom:3px;}
@@ -254,7 +256,6 @@ tbody tr:hover{background:var(--surface2);}
       <div class="nav-item active" onclick="showPage('dashboard',this)"><span class="nav-icon">◈</span>Dashboard</div>
       <div class="nav-item" onclick="showPage('properties',this)"><span class="nav-icon">⬡</span>Properties</div>
       <div class="nav-label">Finance</div>
-      <div class="nav-item" onclick="showPage('rent',this)"><span class="nav-icon">◎</span>Rent Tracking</div>
       <div class="nav-item" onclick="showPage('expenses',this)"><span class="nav-icon">◇</span>Expenses</div>
       <div class="nav-item" onclick="showPage('reports',this)"><span class="nav-icon">▦</span>Reports</div>
       <div class="nav-label">2026</div>
@@ -321,24 +322,13 @@ tbody tr:hover{background:var(--surface2);}
           </div>
         </div>
         <div id="expiryAlert"></div>
-        <div class="section-header"><div class="section-title">Recent Payments <span>latest entries</span></div><button class="btn btn-ghost" onclick="showPage('rent',null)">View All</button></div>
+        <div class="section-header"><div class="section-title">Recent Payments <span>latest entries</span></div><button class="btn btn-ghost" onclick="showPage('budget2026',null)">View All</button></div>
         <div class="table-card"><table><thead><tr><th>Property</th><th>Tenant</th><th>Amount</th><th>Due</th><th>Status</th></tr></thead><tbody id="recentPayments"></tbody></table></div>
       </div>
 
       <div class="page" id="page-properties"><div class="property-grid" id="propertyGrid"></div></div>
 
-      <div class="page" id="page-rent">
-        <div class="filters">
-          <button class="filter-btn active" onclick="filterRent('all',this)">All</button>
-          <button class="filter-btn" onclick="filterRent('paid',this)">Paid</button>
-          <button class="filter-btn" onclick="filterRent('pending',this)">Pending</button>
-          <button class="filter-btn" onclick="filterRent('overdue',this)">Overdue</button>
-        </div>
-        <div class="table-card">
-          <div class="table-header"><div class="table-title">Rent Ledger</div><button class="btn btn-primary" onclick="openModal('addPayment')">+ Add Payment</button></div>
-          <table><thead><tr><th>Property</th><th>Unit</th><th>Tenant</th><th>Amount</th><th>Due</th><th>Paid</th><th>Status</th><th>Notes</th><th></th></tr></thead><tbody id="rentTable"></tbody></table>
-        </div>
-      </div>
+      <div class="page" id="page-rent" style="display:none"></div>
 
       <div class="page" id="page-expenses">
         <div class="filters">
@@ -626,10 +616,11 @@ const DEFAULT_DATA = {
     {id:6,name:'Tenant',property:'rahba',unit:'r8',start:'2025-10-01',end:'2026-10-01',rent:570,contact:'',status:'active'},
     {id:7,name:'Sarah',property:'rahba',unit:'r9',start:'2025-12-15',end:'2026-12-15',rent:550,contact:'',status:'active'},
     {id:8,name:'Lulua',property:'rahba',unit:'r10',start:'2025-06-01',end:'2026-05-31',rent:550,contact:'',status:'active'},
+    {id:13,name:'Oman Towers Company LLC',property:'rahba',unit:'roof',start:'2026-01-31',end:'2031-01-31',rent:172.5,contact:'72595400',status:'active'},
     {id:9,name:'Tenant',property:'luban',unit:'l1',start:'2025-07-10',end:'2026-07-10',rent:525,contact:'',status:'active'},
     {id:10,name:'Tenant',property:'reehan',unit:'re1',start:'2025-07-18',end:'2026-07-18',rent:921,contact:'',status:'active'},
-    {id:11,name:'Tenant',property:'residence',unit:'rs1',start:'2025-04-08',end:'2026-04-08',rent:965,contact:'',status:'active'},
-    {id:12,name:'Self-managed',property:'manchester',unit:'m1',start:'2026-05-01',end:'2031-05-01',rent:400,contact:'',status:'active'},
+    {id:11,name:'',property:'residence',unit:'rs1',start:'',end:'2026-04-08',rent:0,contact:'',status:'expired'},
+    {id:12,name:'',property:'manchester',unit:'m1',start:'',end:'',rent:0,contact:'',status:'expired'},
   ]
 };
 
@@ -792,7 +783,7 @@ function nextId(arr){return arr.length>0?Math.max(...arr.map(x=>x.id||0))+1:1;}
 // ═══════════════════════════════════
 //  NAVIGATION
 // ═══════════════════════════════════
-const TITLES={prevyears:'Previous Years <span>— Historical Income</span>',dashboard:'Dashboard <span>— 2026</span>',properties:'Properties <span>— Portfolio</span>',rent:'Rent Tracking <span>— Ledger</span>',expenses:'Expenses <span>— Ledger</span>',reports:'Reports <span>— Analysis</span>',budget2026:'Budget vs Actual <span>— 2026</span>',tenants:'Tenants <span>— Register</span>'};
+const TITLES={prevyears:'Previous Years <span>— Historical Income</span>',dashboard:'Dashboard <span>— 2026</span>',properties:'Properties <span>— Portfolio</span>',expenses:'Expenses <span>— Ledger</span>',reports:'Reports <span>— Analysis</span>',budget2026:'Budget vs Actual <span>— 2026</span>',tenants:'Tenants <span>— Register</span>'};
 
 function showPage(id,el){
   currentPage=id;
@@ -1194,7 +1185,7 @@ function renderProperties(){
       <div class="prop-header">
         <div class="prop-flag">${p.flag}</div>
         <div class="prop-info"><div class="prop-name">${p.name}</div><div class="prop-location">${p.location}</div></div>
-        <div class="prop-status status-occupied">Occupied</div>
+        <div class="prop-status ${p.value===0?'status-sold':occ>0?'status-occupied':'status-vacant'}">${p.value===0?'Sold':occ>0?'Occupied':'Vacant'}</div>
       </div>
       <div class="prop-body">
         <div class="prop-stats">
